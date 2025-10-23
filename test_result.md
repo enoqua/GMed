@@ -339,15 +339,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Multi-Role Registration System"
-    - "AI Diagnostics Chat System"
-    - "Community Forum System"
-    - "Authentication Flow (Login & Register)"
-    - "Doctor Search and Listing"
-    - "Doctor Detail and Booking"
-    - "My Appointments Screen"
+    - "Pharmacy Listing API"
+    - "Ambulance Listing API"
+    - "Pharmacy Listing Screen"
+    - "Ambulance Listing Screen"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
@@ -359,3 +356,5 @@ agent_communication:
     message: "✅ BACKEND TESTING COMPLETE - All 4 high-priority backend tasks are fully functional. Comprehensive testing performed with 100% success rate on core APIs. Authentication system robust with JWT tokens, doctor listing with filters working perfectly, appointment booking system operational with proper validation and authorization. Error handling verified for edge cases (401, 403, 400, 422 responses). Backend ready for production use. Created backend_test.py for future regression testing."
   - agent: "testing"
     message: "✅ PHASE 2 & 3 BACKEND TESTING COMPLETE - All new backend APIs are fully functional with 100% success rate (17/17 tests passed). Multi-role registration system works for all 5 roles (doctor, hospital, pharmacy, ambulance, herbalist) with proper role-specific data validation. AI diagnostics chat system operational using OpenAI GPT-4o-mini with session management and conversation history. Community forum system fully functional with posts, replies, tags, likes, search, and filtering. All endpoints properly handle authentication and return correct responses. Created backend_phase2_3_test.py for comprehensive testing coverage."
+  - agent: "main"
+    message: "Pharmacy & Ambulance Listing Implementation Complete! Backend: Added GET /api/pharmacies/all and GET /api/ambulances/all endpoints with location filtering. Frontend: Created full-featured listing screens at /app/pharmacies and /app/ambulances with search functionality (filters by name/location), pull-to-refresh, loading states, and mobile-optimized card layouts. Ambulance screen includes availability status badges, emergency banner, and call-to-action buttons. Both screens integrated into patient dashboard quick actions. Ready for backend testing of new pharmacy and ambulance listing endpoints."
