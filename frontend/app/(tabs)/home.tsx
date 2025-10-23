@@ -217,6 +217,20 @@ export default function HomeScreen() {
       color: '#2196F3',
       route: '/medical-records',
     },
+    {
+      id: '7',
+      title: 'Video Consultation',
+      icon: 'videocam',
+      color: '#00BCD4',
+      route: '/consultations',
+    },
+    {
+      id: '8',
+      title: 'My Orders',
+      icon: 'cart',
+      color: '#4CAF50',
+      route: '/orders',
+    },
   ];
 
   return (
