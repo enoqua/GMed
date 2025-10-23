@@ -139,28 +139,27 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   productCard: {
-    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    alignItems: 'center',
+    width: '48%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
-  productIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  productImageContainer: {
+    width: '100%',
+    height: 80,
+    borderRadius: 8,
     backgroundColor: '#FFF3E0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginBottom: 12,
   },
-  productInfo: {
+  productDetails: {
     flex: 1,
   },
   productName: {
