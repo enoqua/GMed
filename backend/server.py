@@ -1101,6 +1101,431 @@ async def update_ambulance_availability(update: AvailabilityUpdate, current_user
     
     return {"message": "Availability updated successfully", "status": update.status}
 
+# Enhanced Appointment Management
+class AppointmentStatusUpdate(BaseModel):
+    status: str  # confirmed, completed, cancelled
+    notes: Optional[str] = None
+
+class PrescriptionCreate(BaseModel):
+    medications: List[dict]
+    instructions: str
+    diagnosis: str
+
+@api_router.put("/appointments/{appointment_id}/status")
+async def update_appointment_status(
+    appointment_id: str,
+    update: AppointmentStatusUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        appointment = await db.appointments.find_one({"_id": ObjectId(appointment_id)})
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # Check if user is the doctor for this appointment
+        if current_user["role"] == UserRole.DOCTOR:
+            doctor = await db.doctors.find_one({"user_id": str(current_user["_id"])})
+            if not doctor or str(doctor["_id"]) != appointment["doctor_id"]:
+                raise HTTPException(status_code=403, detail="Not authorized")
+        
+        await db.appointments.update_one(
+            {"_id": ObjectId(appointment_id)},
+            {"$set": {
+                "status": update.status,
+                "notes": update.notes,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        
+        return {"message": "Appointment updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/appointments/{appointment_id}/prescription")
+async def add_prescription(
+    appointment_id: str,
+    prescription: PrescriptionCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != UserRole.DOCTOR:
+        raise HTTPException(status_code=403, detail="Only doctors can add prescriptions")
+    
+    try:
+        appointment = await db.appointments.find_one({"_id": ObjectId(appointment_id)})
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        prescription_doc = {
+            "appointment_id": appointment_id,
+            "patient_id": appointment["patient_id"],
+            "doctor_id": appointment["doctor_id"],
+            "medications": prescription.medications,
+            "instructions": prescription.instructions,
+            "diagnosis": prescription.diagnosis,
+            "created_at": datetime.utcnow()
+        }
+        
+        result = await db.prescriptions.insert_one(prescription_doc)
+        
+        await db.appointments.update_one(
+            {"_id": ObjectId(appointment_id)},
+            {"$set": {"prescription": str(result.inserted_id)}}
+        )
+        
+        return {"message": "Prescription added successfully", "prescription_id": str(result.inserted_id)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/appointments/{appointment_id}/prescription")
+async def get_prescription(appointment_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        prescription = await db.prescriptions.find_one({"appointment_id": appointment_id})
+        if not prescription:
+            raise HTTPException(status_code=404, detail="No prescription found")
+        
+        # Check authorization
+        user_id = str(current_user["_id"])
+        if prescription["patient_id"] != user_id:
+            if current_user["role"] == UserRole.DOCTOR:
+                doctor = await db.doctors.find_one({"user_id": user_id})
+                if not doctor or str(doctor["_id"]) != prescription["doctor_id"]:
+                    raise HTTPException(status_code=403, detail="Not authorized")
+            else:
+                raise HTTPException(status_code=403, detail="Not authorized")
+        
+        return {
+            "id": str(prescription["_id"]),
+            "medications": prescription["medications"],
+            "instructions": prescription["instructions"],
+            "diagnosis": prescription["diagnosis"],
+            "created_at": prescription["created_at"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Rating and Reviews
+class ReviewCreate(BaseModel):
+    rating: int
+    comment: str
+
+@api_router.post("/doctors/{doctor_id}/review")
+async def add_doctor_review(
+    doctor_id: str,
+    review: ReviewCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != UserRole.PATIENT:
+        raise HTTPException(status_code=403, detail="Only patients can leave reviews")
+    
+    try:
+        doctor = await db.doctors.find_one({"_id": ObjectId(doctor_id)})
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        # Check if patient has completed appointment with doctor
+        appointment = await db.appointments.find_one({
+            "patient_id": str(current_user["_id"]),
+            "doctor_id": doctor_id,
+            "status": "completed"
+        })
+        
+        if not appointment:
+            raise HTTPException(status_code=400, detail="You can only review doctors you've had appointments with")
+        
+        review_doc = {
+            "doctor_id": doctor_id,
+            "patient_id": str(current_user["_id"]),
+            "patient_name": current_user["full_name"],
+            "rating": review.rating,
+            "comment": review.comment,
+            "created_at": datetime.utcnow()
+        }
+        
+        await db.reviews.insert_one(review_doc)
+        
+        # Update doctor rating
+        all_reviews = await db.reviews.find({"doctor_id": doctor_id}).to_list(1000)
+        avg_rating = sum(r["rating"] for r in all_reviews) / len(all_reviews)
+        
+        await db.doctors.update_one(
+            {"_id": ObjectId(doctor_id)},
+            {"$set": {
+                "rating": round(avg_rating, 1),
+                "total_reviews": len(all_reviews)
+            }}
+        )
+        
+        return {"message": "Review added successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/doctors/{doctor_id}/reviews")
+async def get_doctor_reviews(doctor_id: str):
+    reviews = await db.reviews.find({"doctor_id": doctor_id}).sort("created_at", -1).to_list(100)
+    return [{
+        "id": str(r["_id"]),
+        "patient_name": r["patient_name"],
+        "rating": r["rating"],
+        "comment": r["comment"],
+        "created_at": r["created_at"]
+    } for r in reviews]
+
+# Medical Records
+class MedicalRecordCreate(BaseModel):
+    title: str
+    description: str
+    record_type: str
+    attachments: Optional[List[str]] = []
+
+@api_router.post("/patients/medical-records")
+async def add_medical_record(
+    record: MedicalRecordCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != UserRole.PATIENT:
+        raise HTTPException(status_code=403, detail="Only patients can add medical records")
+    
+    user_id = str(current_user["_id"])
+    patient = await db.patients.find_one({"user_id": user_id})
+    
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    record_doc = {
+        "title": record.title,
+        "description": record.description,
+        "record_type": record.record_type,
+        "attachments": record.attachments,
+        "created_at": datetime.utcnow()
+    }
+    
+    await db.patients.update_one(
+        {"user_id": user_id},
+        {"$push": {"medical_history": record_doc}}
+    )
+    
+    return {"message": "Medical record added successfully"}
+
+class AccessCodeVerify(BaseModel):
+    access_code: str
+
+@api_router.post("/patients/{patient_id}/medical-records")
+async def get_patient_medical_records(patient_id: str, access: AccessCodeVerify):
+    patient = await db.patients.find_one({"user_id": patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    if patient["access_code"] != access.access_code:
+        raise HTTPException(status_code=403, detail="Invalid access code")
+    
+    user = await db.users.find_one({"_id": ObjectId(patient_id)})
+    
+    return {
+        "patient_name": user["full_name"],
+        "blood_type": patient.get("blood_type"),
+        "allergies": patient.get("allergies", []),
+        "medical_history": patient.get("medical_history", [])
+    }
+
+# Pharmacy Orders
+class PharmacyOrderCreate(BaseModel):
+    pharmacy_id: str
+    items: List[dict]
+    delivery_address: str
+    notes: Optional[str] = None
+
+@api_router.post("/pharmacies/orders")
+async def create_pharmacy_order(
+    order: PharmacyOrderCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != UserRole.PATIENT:
+        raise HTTPException(status_code=403, detail="Only patients can place orders")
+    
+    # Calculate total
+    total = sum(item.get("price", 0) * item.get("quantity", 1) for item in order.items)
+    
+    order_doc = {
+        "pharmacy_id": order.pharmacy_id,
+        "patient_id": str(current_user["_id"]),
+        "patient_name": current_user["full_name"],
+        "items": order.items,
+        "total": total,
+        "delivery_address": order.delivery_address,
+        "notes": order.notes,
+        "status": "pending",
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.pharmacy_orders.insert_one(order_doc)
+    
+    return {
+        "message": "Order placed successfully",
+        "order_id": str(result.inserted_id),
+        "total": total
+    }
+
+@api_router.get("/pharmacies/my-orders")
+async def get_pharmacy_orders(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.PHARMACY:
+        raise HTTPException(status_code=403, detail="Only pharmacies can view orders")
+    
+    user_id = str(current_user["_id"])
+    pharmacy = await db.pharmacies.find_one({"user_id": user_id})
+    
+    if not pharmacy:
+        return []
+    
+    orders = await db.pharmacy_orders.find({
+        "pharmacy_id": str(pharmacy["_id"])
+    }).sort("created_at", -1).to_list(100)
+    
+    return [{
+        "id": str(o["_id"]),
+        "patient_name": o["patient_name"],
+        "items": o["items"],
+        "total": o["total"],
+        "status": o["status"],
+        "delivery_address": o["delivery_address"],
+        "created_at": o["created_at"]
+    } for o in orders]
+
+@api_router.get("/patients/my-orders")
+async def get_patient_orders(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.PATIENT:
+        raise HTTPException(status_code=403, detail="Only patients can view their orders")
+    
+    orders = await db.pharmacy_orders.find({
+        "patient_id": str(current_user["_id"])
+    }).sort("created_at", -1).to_list(100)
+    
+    result = []
+    for o in orders:
+        pharmacy = await db.pharmacies.find_one({"_id": ObjectId(o["pharmacy_id"])})
+        result.append({
+            "id": str(o["_id"]),
+            "pharmacy_name": pharmacy.get("pharmacy_name", "Unknown") if pharmacy else "Unknown",
+            "items": o["items"],
+            "total": o["total"],
+            "status": o["status"],
+            "created_at": o["created_at"]
+        })
+    
+    return result
+
+@api_router.put("/pharmacies/orders/{order_id}/status")
+async def update_order_status(
+    order_id: str,
+    update: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != UserRole.PHARMACY:
+        raise HTTPException(status_code=403, detail="Only pharmacies can update order status")
+    
+    await db.pharmacy_orders.update_one(
+        {"_id": ObjectId(order_id)},
+        {"$set": {"status": update["status"]}}
+    )
+    
+    return {"message": "Order status updated"}
+
+# Profile Management
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
+
+@api_router.put("/users/profile")
+async def update_profile(
+    update: ProfileUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    user_id = str(current_user["_id"])
+    update_data = {k: v for k, v in update.dict().items() if v is not None}
+    
+    if update_data:
+        await db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": update_data}
+        )
+    
+    return {"message": "Profile updated successfully"}
+
+class ProfilePictureUpdate(BaseModel):
+    profile_picture: str  # base64
+
+@api_router.put("/users/profile-picture")
+async def update_profile_picture(
+    update: ProfilePictureUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.users.update_one(
+        {"_id": ObjectId(str(current_user["_id"]))},
+        {"$set": {"profile_picture": update.profile_picture}}
+    )
+    
+    return {"message": "Profile picture updated"}
+
+# Ambulance Bookings
+class AmbulanceBookingCreate(BaseModel):
+    ambulance_id: str
+    pickup_location: str
+    destination: str
+    emergency_type: str
+    patient_name: str
+    patient_condition: str
+
+@api_router.post("/ambulances/bookings")
+async def create_ambulance_booking(
+    booking: AmbulanceBookingCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    booking_doc = {
+        "ambulance_id": booking.ambulance_id,
+        "patient_user_id": str(current_user["_id"]),
+        "pickup_location": booking.pickup_location,
+        "destination": booking.destination,
+        "emergency_type": booking.emergency_type,
+        "patient_name": booking.patient_name,
+        "patient_condition": booking.patient_condition,
+        "status": "pending",
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.ambulance_bookings.insert_one(booking_doc)
+    
+    return {
+        "message": "Ambulance booking created",
+        "booking_id": str(result.inserted_id)
+    }
+
+@api_router.get("/ambulances/my-bookings")
+async def get_ambulance_bookings(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.AMBULANCE:
+        raise HTTPException(status_code=403, detail="Only ambulance services can view bookings")
+    
+    user_id = str(current_user["_id"])
+    ambulance = await db.ambulances.find_one({"user_id": user_id})
+    
+    if not ambulance:
+        return []
+    
+    bookings = await db.ambulance_bookings.find({
+        "ambulance_id": str(ambulance["_id"])
+    }).sort("created_at", -1).to_list(100)
+    
+    return [{
+        "id": str(b["_id"]),
+        "pickup_location": b["pickup_location"],
+        "destination": b["destination"],
+        "emergency_type": b["emergency_type"],
+        "patient_name": b["patient_name"],
+        "patient_condition": b["patient_condition"],
+        "status": b["status"],
+        "created_at": b["created_at"]
+    } for b in bookings]
+
 app.include_router(api_router)
 
 app.add_middleware(
