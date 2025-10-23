@@ -50,6 +50,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="ai-diagnostics"
+        options={{
+          title: 'AI Help',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubble-ellipses" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="forum"
+        options={{
+          title: 'Forum',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
