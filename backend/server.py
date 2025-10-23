@@ -180,7 +180,7 @@ async def register(user_data: RegisterRequest):
     result = await db.users.insert_one(user_doc)
     user_id = str(result.inserted_id)
     
-    # If patient, create patient record
+    # Create role-specific records
     if user_data.role == UserRole.PATIENT:
         patient_doc = {
             "user_id": user_id,
@@ -192,6 +192,75 @@ async def register(user_data: RegisterRequest):
             "created_at": datetime.utcnow()
         }
         await db.patients.insert_one(patient_doc)
+    
+    elif user_data.role == UserRole.DOCTOR:
+        doctor_doc = {
+            "user_id": user_id,
+            "specialty": user_data.specialty or "General Practitioner",
+            "license_number": user_data.license_number or "PENDING",
+            "consultation_fee": user_data.consultation_fee or 50.0,
+            "location": user_data.location or "Not specified",
+            "bio": user_data.bio or "Healthcare professional",
+            "years_of_experience": user_data.years_of_experience or 0,
+            "rating": 0.0,
+            "total_reviews": 0,
+            "certifications": user_data.certifications,
+            "subscription_status": "pending",
+            "created_at": datetime.utcnow()
+        }
+        await db.doctors.insert_one(doctor_doc)
+    
+    elif user_data.role == UserRole.HOSPITAL:
+        hospital_doc = {
+            "user_id": user_id,
+            "hospital_name": user_data.hospital_name or user_data.full_name,
+            "location": user_data.location or "Not specified",
+            "services": user_data.services or [],
+            "operating_hours": user_data.operating_hours or "24/7",
+            "departments": [],
+            "subscription_status": "pending",
+            "created_at": datetime.utcnow()
+        }
+        await db.hospitals.insert_one(hospital_doc)
+    
+    elif user_data.role == UserRole.PHARMACY:
+        pharmacy_doc = {
+            "user_id": user_id,
+            "pharmacy_name": user_data.pharmacy_name or user_data.full_name,
+            "location": user_data.location or "Not specified",
+            "license_number": user_data.license_number or "PENDING",
+            "license_type": user_data.license_type or "retail",
+            "inventory": [],
+            "subscription_status": "pending",
+            "created_at": datetime.utcnow()
+        }
+        await db.pharmacies.insert_one(pharmacy_doc)
+    
+    elif user_data.role == UserRole.AMBULANCE:
+        ambulance_doc = {
+            "user_id": user_id,
+            "service_areas": user_data.service_areas or [],
+            "vehicle_type": user_data.vehicle_type or "Standard",
+            "location": user_data.location or "Not specified",
+            "availability_status": "available",
+            "subscription_status": "pending",
+            "created_at": datetime.utcnow()
+        }
+        await db.ambulances.insert_one(ambulance_doc)
+    
+    elif user_data.role == UserRole.HERBALIST:
+        herbalist_doc = {
+            "user_id": user_id,
+            "practice_years": user_data.practice_years or 0,
+            "specializations": user_data.specializations or [],
+            "location": user_data.location or "Not specified",
+            "bio": user_data.bio or "Traditional medicine practitioner",
+            "rating": 0.0,
+            "total_reviews": 0,
+            "subscription_status": "pending",
+            "created_at": datetime.utcnow()
+        }
+        await db.herbalists.insert_one(herbalist_doc)
     
     # Create access token
     access_token = create_access_token(data={"sub": user_id, "role": user_data.role})
