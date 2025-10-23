@@ -41,6 +41,7 @@ class UserRole:
     PHARMACY = "pharmacy"
     AMBULANCE = "ambulance"
     HERBALIST = "herbalist"
+    ADMIN = "admin"
 
 class RegisterRequest(BaseModel):
     email: EmailStr
