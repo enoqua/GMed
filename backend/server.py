@@ -49,6 +49,32 @@ class RegisterRequest(BaseModel):
     password: str
     full_name: str
     role: str = UserRole.PATIENT
+    
+    # Doctor specific fields
+    specialty: Optional[str] = None
+    license_number: Optional[str] = None
+    consultation_fee: Optional[float] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
+    years_of_experience: Optional[int] = 0
+    certifications: Optional[str] = None  # base64 document
+    
+    # Hospital specific fields
+    hospital_name: Optional[str] = None
+    services: Optional[List[str]] = None
+    operating_hours: Optional[str] = None
+    
+    # Pharmacy specific fields
+    pharmacy_name: Optional[str] = None
+    license_type: Optional[str] = None
+    
+    # Ambulance specific fields
+    service_areas: Optional[List[str]] = None
+    vehicle_type: Optional[str] = None
+    
+    # Herbalist specific fields
+    practice_years: Optional[int] = 0
+    specializations: Optional[List[str]] = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
