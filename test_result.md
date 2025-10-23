@@ -212,15 +212,18 @@ backend:
 
   - task: "Pharmacy Listing API"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented GET /api/pharmacies/all endpoint to list all registered pharmacies with location filter support. Returns pharmacy name, location, license number, inventory count, phone, and email."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASSED - Pharmacy listing API fully functional. GET /api/pharmacies/all returns array of 3+ pharmacies with complete response structure (id, pharmacy_name, location, license_number, inventory_count, phone, email). Location filtering works correctly (?location=Accra returns 1 pharmacy, ?location=Kumasi returns 1 pharmacy). Empty results handled properly (?location=NonExistentCity returns empty array). Endpoint works without authentication as expected for public listing. Created test pharmacy users with realistic Ghana data (Accra Central Pharmacy, Kumasi Health Pharmacy, Tema Medical Pharmacy)."
 
   - task: "Ambulance Listing API"
     implemented: true
