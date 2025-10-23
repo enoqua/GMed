@@ -210,6 +210,30 @@ backend:
         agent: "testing"
         comment: "✅ PASSED - Community forum system fully functional. POST /api/forum/posts creates posts with tags successfully. GET /api/forum/posts lists all posts with proper pagination. GET /api/forum/posts/{post_id} returns detailed post with replies. POST /api/forum/posts/{post_id}/replies adds replies correctly. POST /api/forum/posts/{post_id}/like increments likes. Search functionality works with ?search parameter. Tag filtering works with ?tag parameter. All endpoints handle authentication properly."
 
+  - task: "Pharmacy Listing API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/pharmacies/all endpoint to list all registered pharmacies with location filter support. Returns pharmacy name, location, license number, inventory count, phone, and email."
+
+  - task: "Ambulance Listing API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/ambulances/all endpoint to list all registered ambulance services with location filter support. Returns service name, location, vehicle type, service areas, availability status, phone, and email."
+
 frontend:
   - task: "Authentication Flow (Login & Register)"
     implemented: true
