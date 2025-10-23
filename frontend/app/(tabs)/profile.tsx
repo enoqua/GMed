@@ -41,25 +41,25 @@ export default function ProfileScreen() {
       id: '2',
       title: 'Medical Records',
       icon: 'document-text-outline',
-      onPress: () => router.push('/medical-records/index' as any),
+      onPress: () => router.push('/medical-records' as any),
     },
     {
       id: '3',
       title: 'Payment Methods',
       icon: 'card-outline',
-      onPress: () => router.push('/payments/index' as any),
+      onPress: () => router.push('/payments' as any),
     },
     {
       id: '4',
       title: 'Notifications',
       icon: 'notifications-outline',
-      onPress: () => router.push('/notifications/index' as any),
+      onPress: () => router.push('/notifications' as any),
     },
     {
       id: '5',
       title: 'Help & Support',
       icon: 'help-circle-outline',
-      onPress: () => router.push('/support/index' as any),
+      onPress: () => router.push('/support' as any),
     },
   ];
 
