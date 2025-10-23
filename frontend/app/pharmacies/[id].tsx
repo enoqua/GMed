@@ -56,29 +56,28 @@ export default function PharmacyProductsScreen() {
       style={styles.productCard}
       onPress={() => router.push(`/pharmacy-products/${product.id}` as any)}
     >
-      <View style={styles.productIcon}>
-        <Ionicons name="medical" size={32} color="#FF9800" />
+      <View style={styles.productImageContainer}>
+        <Ionicons name="medical" size={40} color="#FF9800" />
       </View>
-      <View style={styles.productInfo}>
-        <Text style={styles.productName}>{product.name}</Text>
+      <View style={styles.productDetails}>
+        <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
         <Text style={styles.productCategory}>{product.category}</Text>
         {product.dosage_form && (
           <Text style={styles.dosageForm}>{product.dosage_form}</Text>
         )}
-        <View style={styles.priceRow}>
-          <Text style={styles.price}>GH₵ {product.price.toFixed(2)}</Text>
-          {!product.in_stock && (
-            <Text style={styles.outOfStock}>Out of Stock</Text>
-          )}
-          {product.requires_prescription && (
-            <View style={styles.prescriptionBadge}>
-              <Ionicons name="document-text" size={12} color="#F44336" />
-              <Text style={styles.prescriptionText}>Rx</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.price}>GH₵ {product.price.toFixed(2)}</Text>
+        {!product.in_stock && (
+          <View style={styles.outOfStockBadge}>
+            <Text style={styles.outOfStockText}>Out of Stock</Text>
+          </View>
+        )}
+        {product.requires_prescription && (
+          <View style={styles.prescriptionBadge}>
+            <Ionicons name="document-text" size={10} color="#F44336" />
+            <Text style={styles.prescriptionText}>Rx</Text>
+          </View>
+        )}
       </View>
-      <Ionicons name="chevron-forward" size={24} color="#BDBDBD" />
     </TouchableOpacity>
   );
 
