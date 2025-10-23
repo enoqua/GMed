@@ -10,10 +10,168 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
+import DoctorDashboard from '../../components/dashboards/DoctorDashboard';
+import PharmacyDashboard from '../../components/dashboards/PharmacyDashboard';
 
 export default function HomeScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+
+  // Show role-specific dashboard
+  if (user?.role === 'doctor') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <DoctorDashboard userName={user.full_name} />
+      </SafeAreaView>
+    );
+  }
+
+  if (user?.role === 'pharmacy') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <PharmacyDashboard userName={user.full_name} />
+      </SafeAreaView>
+    );
+  }
+
+  if (user?.role === 'hospital') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Welcome,</Text>
+              <Text style={styles.userName}>{user?.full_name || 'Guest'}</Text>
+            </View>
+            <Ionicons name=\"notifications-outline\" size={28} color=\"#1A237E\" />
+          </View>
+
+          <View style={styles.heroCard}>
+            <Ionicons name=\"business\" size={48} color=\"#9C27B0\" />
+            <Text style={styles.heroTitle}>Hospital Management</Text>\n            <Text style={styles.heroSubtitle}>
+              Manage departments, staff, and patient services
+            </Text>
+          </View>
+
+          <View style={styles.statsGrid}>
+            <View style={[styles.statCard, { backgroundColor: '#F3E5F5' }]}>
+              <Ionicons name=\"business\" size={32} color=\"#9C27B0\" />
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Departments</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
+              <Ionicons name=\"people\" size={32} color=\"#4CAF50\" />
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Staff</Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <TouchableOpacity style={styles.actionCard}>
+            <Ionicons name=\"add-circle\" size={32} color=\"#9C27B0\" />
+            <View style={styles.actionText}>
+              <Text style={styles.actionTitle}>Add Department</Text>
+              <Text style={styles.actionSubtitle}>Create new hospital department</Text>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (user?.role === 'ambulance') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Welcome,</Text>
+              <Text style={styles.userName}>{user?.full_name || 'Guest'}</Text>
+            </View>
+            <Ionicons name=\"notifications-outline\" size={28} color=\"#1A237E\" />
+          </View>
+
+          <View style={styles.heroCard}>
+            <Ionicons name=\"car\" size={48} color=\"#F44336\" />
+            <Text style={styles.heroTitle}>Ambulance Service</Text>
+            <Text style={styles.heroSubtitle}>
+              Emergency medical transport and rescue operations
+            </Text>
+          </View>
+
+          <View style={styles.statsGrid}>
+            <View style={[styles.statCard, { backgroundColor: '#FFEBEE' }]}>
+              <Ionicons name=\"car\" size={32} color=\"#F44336\" />
+              <Text style={styles.statValue}>Available</Text>
+              <Text style={styles.statLabel}>Status</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
+              <Ionicons name=\"navigate\" size={32} color=\"#2196F3\" />
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Active Trips</Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <TouchableOpacity style={styles.actionCard}>
+            <Ionicons name=\"toggle\" size={32} color=\"#F44336\" />
+            <View style={styles.actionText}>
+              <Text style={styles.actionTitle}>Update Availability</Text>
+              <Text style={styles.actionSubtitle}>Set your service status</Text>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (user?.role === 'herbalist') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Welcome,</Text>
+              <Text style={styles.userName}>{user?.full_name || 'Guest'}</Text>
+            </View>
+            <Ionicons name=\"notifications-outline\" size={28} color=\"#1A237E\" />
+          </View>
+
+          <View style={styles.heroCard}>
+            <Ionicons name=\"leaf\" size={48} color=\"#4CAF50\" />
+            <Text style={styles.heroTitle}>Traditional Medicine</Text>
+            <Text style={styles.heroSubtitle}>
+              Herbal remedies and traditional healing practices
+            </Text>
+          </View>
+
+          <View style={styles.statsGrid}>
+            <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
+              <Ionicons name=\"calendar\" size={32} color=\"#4CAF50\" />
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Consultations</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
+              <Ionicons name=\"star\" size={32} color=\"#FFB300\" />
+              <Text style={styles.statValue}>0.0</Text>
+              <Text style={styles.statLabel}>Rating</Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/appointments')}>
+            <Ionicons name=\"calendar\" size={32} color=\"#4CAF50\" />
+            <View style={styles.actionText}>
+              <Text style={styles.actionTitle}>View Appointments</Text>
+              <Text style={styles.actionSubtitle}>Manage your consultations</Text>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Default patient dashboard
 
   const quickActions = [
     {
