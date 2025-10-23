@@ -1,46 +1,17 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for Glenx MedHub - Pharmacy and Ambulance Listing Endpoints
-Testing pharmacy and ambulance listing APIs with realistic Ghana data
+Comprehensive Backend API Testing for Glenx MedHub
+Testing new pharmacy e-commerce, ambulance booking, and video consultation APIs
 """
 
 import requests
 import json
-from datetime import datetime, timedelta
-import sys
 import os
+from datetime import datetime, timedelta
+import uuid
 
-# Get backend URL from frontend .env file
-def get_backend_url():
-    try:
-        with open('/app/frontend/.env', 'r') as f:
-            for line in f:
-                if line.startswith('EXPO_PUBLIC_BACKEND_URL='):
-                    return line.split('=')[1].strip()
-    except:
-        pass
-    return "https://medhub-ghana.preview.emergentagent.com"
-
-BASE_URL = get_backend_url()
-API_URL = f"{BASE_URL}/api"
-
-print(f"Testing backend at: {API_URL}")
-
-# Test data with realistic Ghana information
-TEST_USER = {
-    "email": "kwame.asante@gmail.com",
-    "phone": "+233244567890",
-    "national_id": "GHA-123456789-01",
-    "password": "SecurePass123!",
-    "full_name": "Kwame Asante",
-    "role": "patient"
-}
-
-# Global variables to store test data
-access_token = None
-user_data = None
-doctors_list = []
-test_appointment_id = None
+# Get backend URL from frontend env
+BACKEND_URL = "https://medhub-ghana.preview.emergentagent.com/api"
 
 class TestResults:
     def __init__(self):
