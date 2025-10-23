@@ -412,6 +412,66 @@ frontend:
         agent: "main"
         comment: "Created ambulance listing screen with search functionality that filters by service name and location. Displays ambulance cards with availability status badges, vehicle type, service areas, phone. Includes emergency banner, call-to-action buttons (Call Emergency, Book), pull-to-refresh and loading states. Navigation from patient dashboard quick actions."
 
+  - task: "Pharmacy Product Catalogue Screens"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/pharmacies/[id].tsx, /app/frontend/app/pharmacy-products/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created pharmacy product listing screen (view products by pharmacy) and product detail screen. Product detail includes name, description, price, category, prescription badge, manufacturer, dosage form, stock info, quantity selector, add to cart functionality with stock validation."
+
+  - task: "Shopping Cart & Checkout Screens"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/cart/index.tsx, /app/frontend/app/cart/checkout.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created shopping cart screen with view cart items, update quantities, remove items functionality. Checkout screen includes delivery address form, payment method selection (MTN/Vodafone/AirtelTigo), prescription warning banner, order placement with proper validation."
+
+  - task: "Ambulance Booking Screens"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/ambulance-booking/index.tsx, /app/frontend/app/ambulance-booking/track/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created ambulance booking form with immediate/scheduled options, emergency type selector (6 types), pickup/destination input, patient information form, pricing display. Tracking screen includes mock map view, real-time status updates, driver info, ETA display, call driver button, emergency hotline button."
+
+  - task: "Video Consultation Screens"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/consultations/index.tsx, /app/frontend/app/consultations/schedule.tsx, /app/frontend/app/consultations/room/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created consultations history screen, schedule consultation screen (select doctor, consultation type video/audio, date/time, reason, symptoms), and mock video room UI with video controls (mute/video off/switch camera), end call button, connection status, room info display, mock video streams for doctor and patient."
+
+  - task: "Orders Management Screens"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/orders/index.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created ambulance listing screen with search functionality that filters by service name and location. Displays ambulance cards with availability status badges, vehicle type, service areas, phone. Includes emergency banner, call-to-action buttons (Call Emergency, Book), pull-to-refresh and loading states. Navigation from patient dashboard quick actions."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
