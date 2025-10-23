@@ -278,12 +278,17 @@ def test_order_management_apis(patient_token, product_ids, pharmacy_id):
     
     headers = {"Authorization": f"Bearer {patient_token}"}
     
-    # Test CREATE order - Will fail due to missing verify_token function
+    # Use real product IDs if available
+    if not product_ids:
+        results.log_fail("Order Management APIs", "No product IDs available for testing")
+        return None
+    
+    # Test CREATE order
     order_data = {
         "pharmacy_id": pharmacy_id or "mock_pharmacy_id",
         "items": [
-            {"product_id": "mock_product_1", "quantity": 1},
-            {"product_id": "mock_product_2", "quantity": 2}
+            {"product_id": product_ids[0], "quantity": 1},
+            {"product_id": product_ids[1] if len(product_ids) > 1 else product_ids[0], "quantity": 2}
         ],
         "delivery_address": "123 Liberation Road, Accra",
         "delivery_city": "Accra",
