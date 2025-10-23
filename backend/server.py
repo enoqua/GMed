@@ -2903,6 +2903,427 @@ async def end_consultation(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# ====================================
+# ADMIN DASHBOARD APIS
+# ====================================
+
+class AdminLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+def verify_admin(credentials: HTTPAuthorizationCredentials):
+    """Verify that the user is an admin"""
+    user_id = verify_token(credentials.credentials)
+    return user_id
+
+# Admin Authentication
+@api_router.post("/admin/login")
+async def admin_login(request: AdminLoginRequest):
+    user = await db.users.find_one({"email": request.email})
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    if not verify_password(request.password, user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    if user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Access denied. Admin only.")
+    
+    token = create_access_token({"sub": str(user["_id"])})
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": str(user["_id"]),
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "role": user["role"]
+        }
+    }
+
+# Dashboard Statistics
+@api_router.get("/admin/dashboard/stats")
+async def get_dashboard_stats(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get counts
+    total_users = await db.users.count_documents({})
+    total_patients = await db.users.count_documents({"role": UserRole.PATIENT})
+    total_doctors = await db.users.count_documents({"role": UserRole.DOCTOR})
+    total_pharmacies = await db.users.count_documents({"role": UserRole.PHARMACY})
+    total_ambulances = await db.users.count_documents({"role": UserRole.AMBULANCE})
+    
+    total_orders = await db.orders.count_documents({})
+    total_bookings = await db.ambulance_bookings.count_documents({})
+    total_consultations = await db.consultations.count_documents({})
+    total_appointments = await db.appointments.count_documents({})
+    
+    # Revenue calculations
+    orders_revenue = 0
+    async for order in db.orders.find({"payment_status": "completed"}):
+        orders_revenue += order.get("total_amount", 0)
+    
+    bookings_revenue = 0
+    async for booking in db.ambulance_bookings.find({}):
+        bookings_revenue += booking.get("total_price", 0)
+    
+    consultations_revenue = 0
+    async for consultation in db.consultations.find({"payment_status": "completed"}):
+        consultations_revenue += consultation.get("consultation_fee", 0)
+    
+    total_revenue = orders_revenue + bookings_revenue + consultations_revenue
+    
+    # Recent activities
+    recent_users = await db.users.find({}).sort("created_at", -1).limit(5).to_list(5)
+    recent_orders = await db.orders.find({}).sort("created_at", -1).limit(5).to_list(5)
+    
+    return {
+        "users": {
+            "total": total_users,
+            "patients": total_patients,
+            "doctors": total_doctors,
+            "pharmacies": total_pharmacies,
+            "ambulances": total_ambulances
+        },
+        "transactions": {
+            "orders": total_orders,
+            "bookings": total_bookings,
+            "consultations": total_consultations,
+            "appointments": total_appointments
+        },
+        "revenue": {
+            "total": total_revenue,
+            "orders": orders_revenue,
+            "bookings": bookings_revenue,
+            "consultations": consultations_revenue
+        },
+        "recent_users": [
+            {
+                "id": str(u["_id"]),
+                "full_name": u["full_name"],
+                "email": u["email"],
+                "role": u["role"],
+                "created_at": u["created_at"].isoformat()
+            } for u in recent_users
+        ],
+        "recent_orders": [
+            {
+                "id": str(o["_id"]),
+                "customer_name": o.get("customer_name", ""),
+                "total_amount": o.get("total_amount", 0),
+                "order_status": o.get("order_status", ""),
+                "created_at": o["created_at"].isoformat()
+            } for o in recent_orders
+        ]
+    }
+
+# User Management
+@api_router.get("/admin/users")
+async def get_all_users(
+    role: Optional[str] = None,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query = {}
+    if role:
+        query["role"] = role
+    if search:
+        query["$or"] = [
+            {"full_name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"phone": {"$regex": search, "$options": "i"}}
+        ]
+    if status:
+        query["status"] = status
+    
+    users = await db.users.find(query).sort("created_at", -1).to_list(200)
+    
+    result = []
+    for user in users:
+        result.append({
+            "id": str(user["_id"]),
+            "full_name": user["full_name"],
+            "email": user["email"],
+            "phone": user["phone"],
+            "role": user["role"],
+            "status": user.get("status", "active"),
+            "created_at": user["created_at"].isoformat()
+        })
+    
+    return result
+
+@api_router.put("/admin/users/{user_id}/status")
+async def update_user_status(
+    user_id: str,
+    status: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if status not in ["active", "disabled", "suspended"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"status": status, "updated_at": datetime.utcnow()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": f"User status updated to {status}"}
+
+@api_router.delete("/admin/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.users.delete_one({"_id": ObjectId(user_id)})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "User deleted successfully"}
+
+# Orders Management
+@api_router.get("/admin/orders")
+async def get_all_orders(
+    status: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query = {}
+    if status:
+        query["order_status"] = status
+    
+    orders = await db.orders.find(query).sort("created_at", -1).to_list(200)
+    
+    result = []
+    for order in orders:
+        result.append({
+            "id": str(order["_id"]),
+            "customer_name": order.get("customer_name", ""),
+            "customer_email": order.get("customer_email", ""),
+            "total_amount": order.get("total_amount", 0),
+            "order_status": order.get("order_status", ""),
+            "payment_status": order.get("payment_status", ""),
+            "payment_method": order.get("payment_method", ""),
+            "items_count": len(order.get("items", [])),
+            "created_at": order["created_at"].isoformat()
+        })
+    
+    return result
+
+@api_router.put("/admin/orders/{order_id}/status")
+async def update_order_status(
+    order_id: str,
+    order_status: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    valid_statuses = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]
+    if order_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.orders.update_one(
+        {"_id": ObjectId(order_id)},
+        {"$set": {"order_status": order_status, "updated_at": datetime.utcnow()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    return {"message": f"Order status updated to {order_status}"}
+
+# Bookings Management
+@api_router.get("/admin/bookings")
+async def get_all_bookings(
+    status: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query = {}
+    if status:
+        query["booking_status"] = status
+    
+    bookings = await db.ambulance_bookings.find(query).sort("created_at", -1).to_list(200)
+    
+    result = []
+    for booking in bookings:
+        result.append({
+            "id": str(booking["_id"]),
+            "patient_name": booking.get("patient_name", ""),
+            "service_name": booking.get("service_name", ""),
+            "booking_type": booking.get("booking_type", ""),
+            "booking_status": booking.get("booking_status", ""),
+            "emergency_type": booking.get("emergency_type", ""),
+            "total_price": booking.get("total_price", 0),
+            "pickup_address": booking.get("pickup_address", ""),
+            "destination_address": booking.get("destination_address", ""),
+            "created_at": booking["created_at"].isoformat()
+        })
+    
+    return result
+
+# Consultations Management
+@api_router.get("/admin/consultations")
+async def get_all_consultations(
+    status: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    consultations = await db.consultations.find(query).sort("scheduled_datetime", -1).to_list(200)
+    
+    result = []
+    for consultation in consultations:
+        result.append({
+            "id": str(consultation["_id"]),
+            "patient_name": consultation.get("patient_name", ""),
+            "doctor_name": consultation.get("doctor_name", ""),
+            "scheduled_datetime": consultation.get("scheduled_datetime", ""),
+            "consultation_type": consultation.get("consultation_type", ""),
+            "status": consultation.get("status", ""),
+            "consultation_fee": consultation.get("consultation_fee", 0),
+            "payment_status": consultation.get("payment_status", ""),
+            "created_at": consultation["created_at"].isoformat()
+        })
+    
+    return result
+
+# System Settings
+@api_router.get("/admin/settings")
+async def get_settings(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    settings = await db.settings.find_one({"type": "system"})
+    
+    if not settings:
+        # Create default settings
+        default_settings = {
+            "type": "system",
+            "ambulance_base_fare": 50.0,
+            "ambulance_price_per_km": 5.0,
+            "enable_pharmacy": True,
+            "enable_ambulance": True,
+            "enable_consultations": True,
+            "enable_ai_diagnostics": True,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        result = await db.settings.insert_one(default_settings)
+        settings = await db.settings.find_one({"_id": result.inserted_id})
+    
+    return {
+        "ambulance_base_fare": settings.get("ambulance_base_fare", 50.0),
+        "ambulance_price_per_km": settings.get("ambulance_price_per_km", 5.0),
+        "enable_pharmacy": settings.get("enable_pharmacy", True),
+        "enable_ambulance": settings.get("enable_ambulance", True),
+        "enable_consultations": settings.get("enable_consultations", True),
+        "enable_ai_diagnostics": settings.get("enable_ai_diagnostics", True)
+    }
+
+@api_router.put("/admin/settings")
+async def update_settings(
+    settings_update: dict,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    admin_id = verify_admin(credentials)
+    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
+    
+    if admin.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    settings_update["updated_at"] = datetime.utcnow()
+    
+    await db.settings.update_one(
+        {"type": "system"},
+        {"$set": settings_update},
+        upsert=True
+    )
+    
+    return {"message": "Settings updated successfully"}
+
+# Create Default Admin Account
+@api_router.post("/admin/create-default")
+async def create_default_admin():
+    # Check if admin already exists
+    existing_admin = await db.users.find_one({"role": UserRole.ADMIN})
+    if existing_admin:
+        return {"message": "Admin account already exists"}
+    
+    # Create default admin
+    hashed_password = hash_password("Admin@123")
+    admin_doc = {
+        "email": "admin@glenxmedhub.com",
+        "phone": "+233200000000",
+        "national_id": "ADMIN001",
+        "hashed_password": hashed_password,
+        "full_name": "System Administrator",
+        "role": UserRole.ADMIN,
+        "status": "active",
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.users.insert_one(admin_doc)
+    
+    return {
+        "message": "Default admin account created",
+        "email": "admin@glenxmedhub.com",
+        "password": "Admin@123",
+        "admin_id": str(result.inserted_id)
+    }
+
 app.include_router(api_router)
 
 app.add_middleware(
