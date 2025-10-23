@@ -134,7 +134,7 @@ export default function AmbulancesScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionButton, styles.bookButton]}
-          onPress={() => router.push(`/ambulances/${item.id}/book` as any)}
+          onPress={() => router.push({ pathname: '/ambulance-booking', params: { ambulance_id: item.id, service_name: item.service_name } } as any)}
         >
           <Ionicons name="calendar" size={20} color="#FFFFFF" />
           <Text style={styles.actionButtonText}>Book</Text>
