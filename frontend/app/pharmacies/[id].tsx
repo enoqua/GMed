@@ -136,9 +136,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1A237E',
   },
-  listContent: {
+  gridContent: {
     paddingHorizontal: 16,
     paddingVertical: 16,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   productCard: {
     backgroundColor: '#FFFFFF',
