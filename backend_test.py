@@ -18,26 +18,27 @@ class TestResults:
         self.passed = 0
         self.failed = 0
         self.errors = []
-    
-    def add_pass(self, test_name):
+        
+    def log_pass(self, test_name):
         self.passed += 1
         print(f"✅ PASS: {test_name}")
-    
-    def add_fail(self, test_name, error):
+        
+    def log_fail(self, test_name, error):
         self.failed += 1
         self.errors.append(f"{test_name}: {error}")
         print(f"❌ FAIL: {test_name} - {error}")
-    
+        
     def summary(self):
         total = self.passed + self.failed
         print(f"\n{'='*60}")
         print(f"TEST SUMMARY: {self.passed}/{total} tests passed")
+        print(f"{'='*60}")
         if self.errors:
-            print(f"\nFAILED TESTS:")
+            print("FAILED TESTS:")
             for error in self.errors:
                 print(f"  - {error}")
-        print(f"{'='*60}")
-        return self.failed == 0
+
+results = TestResults()
 
 def make_request(method, endpoint, data=None, headers=None, params=None):
     """Make HTTP request with error handling"""
