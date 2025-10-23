@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glenx MedHub - Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="page">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="logo">
+                    <h1>🏥 Glenx MedHub</h1>
+                    <p>Admin Dashboard</p>
+                </div>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="loginEmail" placeholder="admin@glenxmedhub.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" placeholder="Enter password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                    <div id="loginError" class="error-message"></div>
+                </form>
+                <div class="login-info">
+                    <p><strong>Default Credentials:</strong></p>
+                    <p>Email: admin@glenxmedhub.com</p>
+                    <p>Password: Admin@123</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboardPage" class="page" style="display: none;">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🏥 MedHub Admin</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <span class="icon">📊</span> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-page="users">
+                    <span class="icon">👥</span> Users
+                </a>
+                <a href="#" class="nav-item" data-page="orders">
+                    <span class="icon">🛒</span> Orders
+                </a>
+                <a href="#" class="nav-item" data-page="bookings">
+                    <span class="icon">🚑</span> Ambulance Bookings
+                </a>
+                <a href="#" class="nav-item" data-page="consultations">
+                    <span class="icon">📹</span> Consultations
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <span class="icon">⚙️</span> Settings
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="btn btn-danger">Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h1 id="pageTitle">Dashboard</h1>
+                <div class="user-info">
+                    <span id="adminName">Admin</span>
+                </div>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div id="dashboardContent" class="content-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3 id="totalUsers">0</h3>
+                            <p>Total Users</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🛒</div>
+                        <div class="stat-info">
+                            <h3 id="totalOrders">0</h3>
+                            <p>Total Orders</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🚑</div>
+                        <div class="stat-info">
+                            <h3 id="totalBookings">0</h3>
+                            <p>Ambulance Bookings</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-info">
+                            <h3 id="totalRevenue">GH₵ 0</h3>
+                            <p>Total Revenue</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>User Distribution</h3>
+                        <div class="user-stats">
+                            <div class="user-stat">
+                                <span class="label">Patients:</span>
+                                <span id="patientsCount" class="value">0</span>
+                            </div>
+                            <div class="user-stat">
+                                <span class="label">Doctors:</span>
+                                <span id="doctorsCount" class="value">0</span>
+                            </div>
+                            <div class="user-stat">
+                                <span class="label">Pharmacies:</span>
+                                <span id="pharmaciesCount" class="value">0</span>
+                            </div>
+                            <div class="user-stat">
+                                <span class="label">Ambulances:</span>
+                                <span id="ambulancesCount" class="value">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>Recent Users</h3>
+                        <div id="recentUsers" class="list-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Content -->
+            <div id="usersContent" class="content-section" style="display: none;">
+                <div class="content-header">
+                    <div class="filters">
+                        <select id="userRoleFilter" class="filter-select">
+                            <option value="">All Roles</option>
+                            <option value="patient">Patients</option>
+                            <option value="doctor">Doctors</option>
+                            <option value="pharmacy">Pharmacies</option>
+                            <option value="ambulance">Ambulances</option>
+                            <option value="hospital">Hospitals</option>
+                            <option value="herbalist">Herbalists</option>
+                        </select>
+                        <input type="text" id="userSearchInput" class="search-input" placeholder="Search users...">
+                        <button id="searchUsersBtn" class="btn btn-primary">Search</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Orders Content -->
+            <div id="ordersContent" class="content-section" style="display: none;">
+                <div class="content-header">
+                    <div class="filters">
+                        <select id="orderStatusFilter" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="processing">Processing</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button id="loadOrdersBtn" class="btn btn-primary">Load Orders</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="ordersTable">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Payment</th>
+                                <th>Items</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Bookings Content -->
+            <div id="bookingsContent" class="content-section" style="display: none;">
+                <div class="content-header">
+                    <div class="filters">
+                        <select id="bookingStatusFilter" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="en_route">En Route</option>
+                            <option value="arrived">Arrived</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button id="loadBookingsBtn" class="btn btn-primary">Load Bookings</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="bookingsTable">
+                        <thead>
+                            <tr>
+                                <th>Booking ID</th>
+                                <th>Patient</th>
+                                <th>Service</th>
+                                <th>Type</th>
+                                <th>Emergency</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bookingsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Consultations Content -->
+            <div id="consultationsContent" class="content-section" style="display: none;">
+                <div class="content-header">
+                    <div class="filters">
+                        <select id="consultationStatusFilter" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button id="loadConsultationsBtn" class="btn btn-primary">Load Consultations</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="consultationsTable">
+                        <thead>
+                            <tr>
+                                <th>Consultation ID</th>
+                                <th>Patient</th>
+                                <th>Doctor</th>
+                                <th>Type</th>
+                                <th>Scheduled</th>
+                                <th>Fee</th>
+                                <th>Status</th>
+                                <th>Payment</th>
+                            </tr>
+                        </thead>
+                        <tbody id="consultationsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings Content -->
+            <div id="settingsContent" class="content-section" style="display: none;">
+                <div class="settings-container">
+                    <h2>System Settings</h2>
+                    <form id="settingsForm">
+                        <div class="form-section">
+                            <h3>Ambulance Pricing</h3>
+                            <div class="form-group">
+                                <label>Base Fare (GH₵)</label>
+                                <input type="number" id="ambulanceBaseFare" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Price Per Kilometer (GH₵)</label>
+                                <input type="number" id="ambulancePricePerKm" step="0.01" required>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Feature Toggles</h3>
+                            <div class="toggle-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="enablePharmacy">
+                                    <span>Enable Pharmacy E-commerce</span>
+                                </label>
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="enableAmbulance">
+                                    <span>Enable Ambulance Booking</span>
+                                </label>
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="enableConsultations">
+                                    <span>Enable Video Consultations</span>
+                                </label>
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="enableAiDiagnostics">
+                                    <span>Enable AI Diagnostics</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">Save Settings</button>
+                        <div id="settingsMessage" class="success-message"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
