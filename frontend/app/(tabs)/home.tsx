@@ -191,17 +191,31 @@ export default function HomeScreen() {
     },
     {
       id: '3',
-      title: 'Video Call',
-      icon: 'videocam',
+      title: 'Pharmacy Shops',
+      icon: 'flask',
       color: '#FF9800',
-      route: '/appointments',
+      route: '/pharmacies',
     },
     {
       id: '4',
+      title: 'Ambulance Services',
+      icon: 'car',
+      color: '#F44336',
+      route: '/ambulances',
+    },
+    {
+      id: '5',
+      title: 'AI Diagnostics',
+      icon: 'chatbubble-ellipses',
+      color: '#9C27B0',
+      route: '/ai-diagnostics',
+    },
+    {
+      id: '6',
       title: 'Medical Records',
       icon: 'document-text',
-      color: '#E91E63',
-      route: '/profile',
+      color: '#2196F3',
+      route: '/medical-records',
     },
   ];
 
