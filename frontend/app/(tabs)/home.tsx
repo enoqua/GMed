@@ -258,6 +258,8 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        <PromotionsCarousel />
+
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActionsGrid}>
           {quickActions.map((action) => (
