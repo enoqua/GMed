@@ -43,12 +43,13 @@ export default function HomeScreen() {
               <Text style={styles.greeting}>Welcome,</Text>
               <Text style={styles.userName}>{user?.full_name || 'Guest'}</Text>
             </View>
-            <Ionicons name=\"notifications-outline\" size={28} color=\"#1A237E\" />
+            <Ionicons name="notifications-outline" size={28} color="#1A237E" />
           </View>
 
           <View style={styles.heroCard}>
-            <Ionicons name=\"business\" size={48} color=\"#9C27B0\" />
-            <Text style={styles.heroTitle}>Hospital Management</Text>\n            <Text style={styles.heroSubtitle}>
+            <Ionicons name="business" size={48} color="#9C27B0" />
+            <Text style={styles.heroTitle}>Hospital Management</Text>
+            <Text style={styles.heroSubtitle}>
               Manage departments, staff, and patient services
             </Text>
           </View>
