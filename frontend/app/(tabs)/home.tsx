@@ -56,12 +56,12 @@ export default function HomeScreen() {
 
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, { backgroundColor: '#F3E5F5' }]}>
-              <Ionicons name=\"business\" size={32} color=\"#9C27B0\" />
+              <Ionicons name="business" size={32} color="#9C27B0" />
               <Text style={styles.statValue}>0</Text>
               <Text style={styles.statLabel}>Departments</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name=\"people\" size={32} color=\"#4CAF50\" />
+              <Ionicons name="people" size={32} color="#4CAF50" />
               <Text style={styles.statValue}>0</Text>
               <Text style={styles.statLabel}>Staff</Text>
             </View>
@@ -69,7 +69,7 @@ export default function HomeScreen() {
 
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <TouchableOpacity style={styles.actionCard}>
-            <Ionicons name=\"add-circle\" size={32} color=\"#9C27B0\" />
+            <Ionicons name="add-circle" size={32} color="#9C27B0" />
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>Add Department</Text>
               <Text style={styles.actionSubtitle}>Create new hospital department</Text>
