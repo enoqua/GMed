@@ -1536,6 +1536,75 @@ async def get_all_ambulances(location: Optional[str] = None):
     
     return result
 
+# Pharmacies Listing
+@api_router.get("/pharmacies/all")
+async def get_all_pharmacies(location: Optional[str] = None):
+    query = {}
+    if location:
+        query["location"] = {"$regex": location, "$options": "i"}
+    
+    pharmacies = await db.pharmacies.find(query).to_list(100)
+    
+    result = []
+    for pharmacy in pharmacies:
+        user = await db.users.find_one({"_id": ObjectId(pharmacy["user_id"])})
+        if user:
+            result.append({
+                "id": str(pharmacy["_id"]),
+                "pharmacy_name": pharmacy.get("pharmacy_name", user["full_name"]),
+                "location": pharmacy.get("location", "Not specified"),
+                "license_number": pharmacy.get("license_number", ""),
+                "inventory_count": len(pharmacy.get("inventory", [])),
+                "phone": user.get("phone", ""),
+                "email": user.get("email", "")
+            })
+    
+    return result
+
+@api_router.get("/pharmacies/{pharmacy_id}/medicines")
+async def get_pharmacy_medicines(pharmacy_id: str):
+    try:
+        pharmacy = await db.pharmacies.find_one({"_id": ObjectId(pharmacy_id)})
+        if not pharmacy:
+            raise HTTPException(status_code=404, detail="Pharmacy not found")
+        
+        user = await db.users.find_one({"_id": ObjectId(pharmacy["user_id"])})
+        
+        return {
+            "pharmacy_name": pharmacy.get("pharmacy_name", user["full_name"] if user else "Unknown"),
+            "location": pharmacy.get("location", "Not specified"),
+            "phone": user.get("phone", "") if user else "",
+            "inventory": pharmacy.get("inventory", [])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Ambulance Services Listing
+@api_router.get("/ambulances/all")
+async def get_all_ambulances(location: Optional[str] = None):
+    query = {}
+    if location:
+        query["location"] = {"$regex": location, "$options": "i"}
+    
+    ambulances = await db.ambulances.find(query).to_list(100)
+    
+    result = []
+    for ambulance in ambulances:
+        user = await db.users.find_one({"_id": ObjectId(ambulance["user_id"])})
+        if user:
+            result.append({
+                "id": str(ambulance["_id"]),
+                "service_name": user["full_name"],
+                "location": ambulance.get("location", "Not specified"),
+                "vehicle_type": ambulance.get("vehicle_type", "Standard"),
+                "service_areas": ambulance.get("service_areas", []),
+                "availability_status": ambulance.get("availability_status", "available"),
+                "phone": user.get("phone", ""),
+                "email": user.get("email", "")
+            })
+    
+    return result
+
 # Ambulance Bookings
 class AmbulanceBookingCreate(BaseModel):
     ambulance_id: str
