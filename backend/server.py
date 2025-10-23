@@ -3303,7 +3303,7 @@ async def create_default_admin():
         return {"message": "Admin account already exists"}
     
     # Create default admin
-    hashed_password = hash_password("Admin@123")
+    hashed_password = get_password_hash("Admin@123")
     admin_doc = {
         "email": "admin@glenxmedhub.com",
         "phone": "+233200000000",
