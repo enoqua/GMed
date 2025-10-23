@@ -384,4 +384,42 @@ const styles = StyleSheet.create({
     color: '#546E7A',
     marginTop: 4,
   },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    width: '48%',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1A237E',
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#546E7A',
+    marginTop: 4,
+  },
+  actionText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1A237E',
+  },
+  actionSubtitle: {
+    fontSize: 12,
+    color: '#546E7A',
+    marginTop: 2,
+  },
 });
