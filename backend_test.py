@@ -338,7 +338,7 @@ def test_order_management_apis(patient_token, product_ids, pharmacy_id):
     
     return order_id
 
-def test_ambulance_booking_apis(patient_token, ambulance_id):
+def test_ambulance_booking_apis(patient_token, ambulance_user_id):
     """Test ambulance booking system"""
     print("\n🚑 Testing Ambulance Booking APIs...")
     
@@ -348,9 +348,21 @@ def test_ambulance_booking_apis(patient_token, ambulance_id):
     
     headers = {"Authorization": f"Bearer {patient_token}"}
     
-    # Test BOOK immediate ambulance - Will fail due to missing verify_token function
+    # Get the correct ambulance ID from the ambulances listing
+    ambulance_id = None
+    response = make_request("GET", "/ambulances/all")
+    if response and response.status_code == 200:
+        ambulances = response.json()
+        if ambulances:
+            ambulance_id = ambulances[0]["id"]  # Use first available ambulance
+    
+    if not ambulance_id:
+        results.log_fail("Ambulance Booking APIs", "No ambulance services available")
+        return None
+    
+    # Test BOOK immediate ambulance
     immediate_booking = {
-        "ambulance_id": ambulance_id or "mock_ambulance_id",
+        "ambulance_id": ambulance_id,
         "booking_type": "immediate",
         "pickup_address": "37 Military Hospital, Accra",
         "pickup_latitude": 5.6037,
