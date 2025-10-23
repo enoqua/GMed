@@ -146,7 +146,7 @@ function PromotionsCarousel() {
   return (
     <View style={styles.promotionsSection}>
       <View style={styles.promotionHeader}>
-        <Ionicons name=\"megaphone\" size={24} color=\"#FF9800\" />
+        <Ionicons name="megaphone" size={24} color="#FF9800" />
         <Text style={styles.promotionSectionTitle}>Special Offers</Text>
       </View>
       
@@ -155,7 +155,7 @@ function PromotionsCarousel() {
         showsHorizontalScrollIndicator={false}
         pagingEnabled
         snapToInterval={width - 48}
-        decelerationRate=\"fast\"
+        decelerationRate="fast"
         contentContainerStyle={styles.promotionsScroll}
         onMomentumScrollEnd={(event) => {
           const index = Math.round(event.nativeEvent.contentOffset.x / (width - 48));
