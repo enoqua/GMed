@@ -584,12 +584,12 @@ def main():
     order_id = test_order_management_apis(tokens.get("patient"), product_ids, pharmacy_id)
     
     # Test 5: Ambulance Booking APIs
-    ambulance_id = user_ids.get("ambulance")
-    booking_id = test_ambulance_booking_apis(tokens.get("patient"), ambulance_id)
+    ambulance_user_id = user_ids.get("ambulance")
+    booking_id = test_ambulance_booking_apis(tokens.get("patient"), ambulance_user_id)
     
     # Test 6: Video Consultation APIs
-    doctor_id = user_ids.get("doctor")
-    consultation_id = test_video_consultation_apis(tokens.get("patient"), doctor_id)
+    doctor_user_id = user_ids.get("doctor")
+    consultation_id = test_video_consultation_apis(tokens.get("patient"), doctor_user_id)
     
     # Final summary
     results.summary()
