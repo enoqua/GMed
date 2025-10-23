@@ -188,8 +188,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#4CAF50',
   },
-  outOfStock: {
-    fontSize: 12,
+  outOfStockBadge: {
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  outOfStockText: {
+    fontSize: 10,
     color: '#F44336',
     fontWeight: '600',
   },
