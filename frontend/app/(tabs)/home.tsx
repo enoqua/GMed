@@ -19,6 +19,169 @@ import api from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
+interface Promotion {
+  id: string;
+  provider_name: string;
+  provider_role: string;
+  title: string;
+  description: string;
+  discount_percentage?: number;
+  discount_amount?: number;
+  promotional_text: string;
+  image_base64?: string;
+  category: string;
+  is_featured: boolean;
+}
+
+function PromotionsCarousel() {
+  const router = useRouter();
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    fetchPromotions();
+  }, []);
+
+  const fetchPromotions = async () => {
+    try {
+      const response = await api.get('/promotions/active');
+      setPromotions(response.data);
+    } catch (error) {
+      console.error('Error fetching promotions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePromotionClick = async (promotion: Promotion) => {
+    try {
+      await api.post(`/promotions/${promotion.id}/click`);
+      
+      // Navigate based on category
+      switch (promotion.category) {
+        case 'pharmacy':
+          router.push('/pharmacies');
+          break;
+        case 'ambulance':
+          router.push('/ambulances');
+          break;
+        case 'hospital':
+          router.push('/doctors');
+          break;
+        case 'consultation':
+          router.push('/consultations');
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      console.error('Error tracking click:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.promotionsContainer}>
+        <ActivityIndicator size=\"small\" color=\"#4CAF50\" />
+      </View>
+    );
+  }
+
+  if (promotions.length === 0) {
+    return null; // Don't show section if no promotions
+  }
+
+  const renderPromotion = (promotion: Promotion, index: number) => (
+    <TouchableOpacity
+      key={promotion.id}
+      style={styles.promotionCard}
+      onPress={() => handlePromotionClick(promotion)}
+      activeOpacity={0.9}
+    >
+      <View style={styles.promotionContent}>
+        <View style={styles.promotionBadge}>
+          <Ionicons 
+            name={promotion.category === 'pharmacy' ? 'flask' : promotion.category === 'ambulance' ? 'car' : 'medkit'} 
+            size={16} 
+            color=\"#FFFFFF\" 
+          />
+          <Text style={styles.promotionBadgeText}>
+            {promotion.category.toUpperCase()}
+          </Text>
+        </View>
+        
+        <Text style={styles.promotionTitle} numberOfLines={2}>
+          {promotion.title}
+        </Text>
+        
+        <Text style={styles.promotionDescription} numberOfLines={2}>
+          {promotion.description}
+        </Text>
+        
+        {promotion.discount_percentage && (
+          <View style={styles.discountBanner}>
+            <Text style={styles.discountText}>
+              {promotion.discount_percentage}% OFF
+            </Text>
+          </View>
+        )}
+        
+        <View style={styles.promotionFooter}>
+          <View style={styles.providerInfo}>
+            <Ionicons name=\"business\" size={14} color=\"#757575\" />
+            <Text style={styles.providerName} numberOfLines={1}>
+              {promotion.provider_name}
+            </Text>
+          </View>
+          <View style={styles.shopNowButton}>
+            <Text style={styles.shopNowText}>Shop Now</Text>
+            <Ionicons name=\"arrow-forward\" size={16} color=\"#4CAF50\" />
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.promotionsSection}>
+      <View style={styles.promotionHeader}>
+        <Ionicons name=\"megaphone\" size={24} color=\"#FF9800\" />
+        <Text style={styles.promotionSectionTitle}>Special Offers</Text>
+      </View>
+      
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        pagingEnabled
+        snapToInterval={width - 48}
+        decelerationRate=\"fast\"
+        contentContainerStyle={styles.promotionsScroll}
+        onMomentumScrollEnd={(event) => {
+          const index = Math.round(event.nativeEvent.contentOffset.x / (width - 48));
+          setCurrentIndex(index);
+        }}
+      >
+        {promotions.map(renderPromotion)}
+      </ScrollView>
+      
+      {promotions.length > 1 && (
+        <View style={styles.paginationDots}>
+          {promotions.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.dot,
+                index === currentIndex && styles.activeDot,
+              ]}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
