@@ -252,8 +252,8 @@ def test_shopping_cart_apis(patient_token, product_ids):
         error_msg = response.json().get("detail", "Unknown error") if response else "Connection failed"
         results.log_fail("View cart", error_msg)
     
-    # Test UPDATE cart quantity
-    response = make_request("PUT", f"/cart/item/{test_product_id}", headers=headers, params={"quantity": 3})
+    # Test UPDATE cart quantity - The API expects quantity as query parameter
+    response = make_request("PUT", f"/cart/item/{test_product_id}?quantity=3", headers=headers)
     if response and response.status_code == 200:
         results.log_pass("Update cart item quantity")
     else:
