@@ -405,10 +405,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Pharmacy Listing API"
-    - "Ambulance Listing API"
-    - "Pharmacy Listing Screen"
-    - "Ambulance Listing Screen"
+    - "Pharmacy Product Management APIs"
+    - "Shopping Cart APIs"
+    - "Order Management APIs"
+    - "Ambulance Booking APIs"
+    - "Video Consultation APIs"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
