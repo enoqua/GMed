@@ -307,6 +307,30 @@ frontend:
         agent: "main"
         comment: "Created profile screen with user info, stats cards, menu items, and logout functionality."
 
+  - task: "Pharmacy Listing Screen"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/pharmacies/index.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created pharmacy listing screen with search functionality that filters by pharmacy name and location. Displays pharmacy cards with name, location, inventory count, phone. Includes pull-to-refresh and loading states. Navigation from patient dashboard quick actions."
+
+  - task: "Ambulance Listing Screen"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/ambulances/index.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created ambulance listing screen with search functionality that filters by service name and location. Displays ambulance cards with availability status badges, vehicle type, service areas, phone. Includes emergency banner, call-to-action buttons (Call Emergency, Book), pull-to-refresh and loading states. Navigation from patient dashboard quick actions."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
