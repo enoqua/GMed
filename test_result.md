@@ -242,63 +242,78 @@ backend:
 
   - task: "Pharmacy Product Management APIs"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented complete CRUD APIs for pharmacy product management: POST /api/products (create), GET /api/products (list with filters), GET /api/products/{id} (details), PUT /api/products/{id} (update), DELETE /api/products/{id} (delete). Supports product categories, prescription requirements, stock management, and image uploads (base64)."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASSED - All pharmacy product management APIs fully functional. Fixed critical missing verify_token function. Successfully tested: CREATE products (3 different categories), LIST all products, FILTER by category (Pain Relief), SEARCH by name (Paracetamol), GET single product details, UPDATE product (price/stock), DELETE product, and proper authorization (only pharmacy role can create/update/delete). All endpoints return correct responses with proper authentication and role-based access control."
 
   - task: "Shopping Cart APIs"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented shopping cart system: POST /api/cart/add (add to cart), GET /api/cart (view cart), DELETE /api/cart/item/{product_id} (remove item), PUT /api/cart/item/{product_id} (update quantity). Cart persists per user with stock validation."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASSED - Shopping cart system fully operational. Successfully tested: ADD products to cart with quantity validation, VIEW cart with populated product details and totals, UPDATE cart item quantities, REMOVE items from cart. Stock validation works correctly (prevents adding more than available stock). Cart persists per user and integrates properly with product management system."
 
   - task: "Order Management APIs"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented order placement and tracking: POST /api/orders (create order with mock payment), GET /api/orders/my-orders (order history), GET /api/orders/{id} (order details). Supports delivery address, prescription uploads, mock payment gateways (MTN, Vodafone, AirtelTigo), and automatic stock reduction."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASSED - Order management system fully functional. Successfully tested: CREATE orders with mock payment processing (MTN/Vodafone/AirtelTigo), automatic stock reduction after order placement, cart clearing after successful order, GET order history with proper user filtering, GET specific order details with authorization checks. Mock payment system works correctly with 'completed' status. Proper delivery address and contact information handling."
 
   - task: "Ambulance Booking APIs"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented ambulance booking system: POST /api/ambulance/book (book immediate or scheduled), GET /api/ambulance/bookings (booking history), GET /api/ambulance/bookings/{id} (booking details), GET /api/ambulance/track/{id} (mock live tracking). Supports pickup/destination, emergency type, patient condition, distance-based pricing, driver contact info."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASSED - Ambulance booking system fully operational. Successfully tested: BOOK immediate ambulance with distance-based pricing (GH₵50 base + GH₵5/km), BOOK scheduled ambulance with future datetime, proper driver info generation (mock driver name, phone, vehicle number), GET booking history, GET booking details with authorization, TRACK ambulance with mock GPS coordinates and ETA. Emergency type and patient condition properly recorded. All endpoints require proper authentication."
 
   - task: "Video Consultation APIs"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented video consultation system: POST /api/consultations/schedule (schedule consultation), GET /api/consultations/my-consultations (consultation history), GET /api/consultations/{id} (details), POST /api/consultations/{id}/join (join with mock Agora token), POST /api/consultations/{id}/end (end consultation). Generates unique room IDs and mock Agora tokens for video calls."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASSED - Video consultation system fully functional. Successfully tested: SCHEDULE consultations with doctors (generates room_id and consultation_fee), GET consultation history, GET consultation details, JOIN consultation (returns mock Agora token and app_id), END consultation with status update to 'completed', proper status transitions (scheduled → in_progress → completed). Mock Agora integration ready for real implementation. All endpoints properly authenticated and authorized."
 
 frontend:
   - task: "Authentication Flow (Login & Register)"
