@@ -713,10 +713,7 @@ def run_all_tests():
     return success
 
 if __name__ == "__main__":
-    results = run_all_tests()
+    success = run_all_tests()
     
     # Exit with error code if any tests failed
-    if any(not result for result in results.values()):
-        sys.exit(1)
-    else:
-        sys.exit(0)
+    sys.exit(0 if success else 1)
