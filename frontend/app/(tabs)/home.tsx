@@ -117,7 +117,7 @@ export default function HomeScreen() {
           <TouchableOpacity style={styles.actionCard}>
             <Ionicons name="toggle" size={32} color="#F44336" />
             <View style={styles.actionText}>
-              <Text style={styles.actionTitle}>Update Availability</Text>
+              <Text style={styles.actionCardTitle}>Update Availability</Text>
               <Text style={styles.actionSubtitle}>Set your service status</Text>
             </View>
           </TouchableOpacity>
