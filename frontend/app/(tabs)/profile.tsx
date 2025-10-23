@@ -41,25 +41,25 @@ export default function ProfileScreen() {
       id: '2',
       title: 'Medical Records',
       icon: 'document-text-outline',
-      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+      onPress: () => router.push('/medical-records/index' as any),
     },
     {
       id: '3',
       title: 'Payment Methods',
       icon: 'card-outline',
-      onPress: () => Alert.alert('Coming Soon', 'Payment integration will be added'),
+      onPress: () => router.push('/payments/index' as any),
     },
     {
       id: '4',
       title: 'Notifications',
       icon: 'notifications-outline',
-      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+      onPress: () => router.push('/notifications/index' as any),
     },
     {
       id: '5',
       title: 'Help & Support',
       icon: 'help-circle-outline',
-      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+      onPress: () => router.push('/support/index' as any),
     },
   ];
 
