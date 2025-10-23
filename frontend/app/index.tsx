@@ -57,7 +57,7 @@ export default function WelcomeScreen() {
         
         <TouchableOpacity 
           style={styles.secondaryButton}
-          onPress={() => router.push('/auth/register')}
+          onPress={() => router.push('/auth/role-select')}
         >
           <Text style={styles.secondaryButtonText}>Create Account</Text>
         </TouchableOpacity>
