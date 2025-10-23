@@ -83,7 +83,7 @@ function PromotionsCarousel() {
   if (loading) {
     return (
       <View style={styles.promotionsContainer}>
-        <ActivityIndicator size=\"small\" color=\"#4CAF50\" />
+        <ActivityIndicator size="small" color="#4CAF50" />
       </View>
     );
   }
