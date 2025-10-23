@@ -135,11 +135,11 @@ export default function HomeScreen() {
               <Text style={styles.greeting}>Welcome,</Text>
               <Text style={styles.userName}>{user?.full_name || 'Guest'}</Text>
             </View>
-            <Ionicons name=\"notifications-outline\" size={28} color=\"#1A237E\" />
+            <Ionicons name="notifications-outline" size={28} color="#1A237E" />
           </View>
 
           <View style={styles.heroCard}>
-            <Ionicons name=\"leaf\" size={48} color=\"#4CAF50\" />
+            <Ionicons name="leaf" size={48} color="#4CAF50" />
             <Text style={styles.heroTitle}>Traditional Medicine</Text>
             <Text style={styles.heroSubtitle}>
               Herbal remedies and traditional healing practices
@@ -148,12 +148,12 @@ export default function HomeScreen() {
 
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name=\"calendar\" size={32} color=\"#4CAF50\" />
+              <Ionicons name="calendar" size={32} color="#4CAF50" />
               <Text style={styles.statValue}>0</Text>
               <Text style={styles.statLabel}>Consultations</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
-              <Ionicons name=\"star\" size={32} color=\"#FFB300\" />
+              <Ionicons name="star" size={32} color="#FFB300" />
               <Text style={styles.statValue}>0.0</Text>
               <Text style={styles.statLabel}>Rating</Text>
             </View>
@@ -161,7 +161,7 @@ export default function HomeScreen() {
 
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/appointments')}>
-            <Ionicons name=\"calendar\" size={32} color=\"#4CAF50\" />
+            <Ionicons name="calendar" size={32} color="#4CAF50" />
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>View Appointments</Text>
               <Text style={styles.actionSubtitle}>Manage your consultations</Text>
