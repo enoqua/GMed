@@ -291,9 +291,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "User Authentication (Register & Login)"
-    - "Doctor Listing API with Search and Filters"
-    - "Appointment Booking API"
+    - "Multi-Role Registration System"
+    - "AI Diagnostics Chat System"
+    - "Community Forum System"
     - "Authentication Flow (Login & Register)"
     - "Doctor Search and Listing"
     - "Doctor Detail and Booking"
