@@ -35,7 +35,7 @@ export default function ProfileScreen() {
       id: '1',
       title: 'Edit Profile',
       icon: 'person-outline',
-      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+      onPress: () => router.push('/profile/edit' as any),
     },
     {
       id: '2',
