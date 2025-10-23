@@ -852,6 +852,255 @@ async def like_forum_post(post_id: str, current_user: dict = Depends(get_current
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# Dashboard Routes
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    role = current_user["role"]
+    
+    if role == UserRole.PATIENT:
+        # Patient dashboard stats
+        appointments_count = await db.appointments.count_documents({"patient_id": user_id})
+        upcoming_appointments = await db.appointments.count_documents({
+            "patient_id": user_id,
+            "status": "pending",
+            "scheduled_time": {"$gte": datetime.utcnow()}
+        })
+        
+        return {
+            "role": role,
+            "total_appointments": appointments_count,
+            "upcoming_appointments": upcoming_appointments,
+            "completed_appointments": await db.appointments.count_documents({
+                "patient_id": user_id,
+                "status": "completed"
+            })
+        }
+    
+    elif role == UserRole.DOCTOR:
+        # Doctor dashboard stats
+        doctor = await db.doctors.find_one({"user_id": user_id})
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor profile not found")
+        
+        doctor_id = str(doctor["_id"])
+        total_appointments = await db.appointments.count_documents({"doctor_id": doctor_id})
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+        
+        today_appointments = await db.appointments.count_documents({
+            "doctor_id": doctor_id,
+            "scheduled_time": {"$gte": today_start, "$lt": today_end}
+        })
+        
+        pending_appointments = await db.appointments.count_documents({
+            "doctor_id": doctor_id,
+            "status": "pending"
+        })
+        
+        # Calculate total earnings (mock for now)
+        completed_appointments = await db.appointments.count_documents({
+            "doctor_id": doctor_id,
+            "status": "completed"
+        })
+        
+        total_earnings = completed_appointments * doctor.get("consultation_fee", 0)
+        
+        return {
+            "role": role,
+            "total_appointments": total_appointments,
+            "today_appointments": today_appointments,
+            "pending_appointments": pending_appointments,
+            "total_patients": total_appointments,  # Simplified
+            "total_earnings": total_earnings,
+            "rating": doctor.get("rating", 0),
+            "total_reviews": doctor.get("total_reviews", 0)
+        }
+    
+    elif role == UserRole.HOSPITAL:
+        # Hospital dashboard stats
+        hospital = await db.hospitals.find_one({"user_id": user_id})
+        if not hospital:
+            raise HTTPException(status_code=404, detail="Hospital profile not found")
+        
+        departments_count = len(hospital.get("departments", []))
+        
+        return {
+            "role": role,
+            "hospital_name": hospital.get("hospital_name", ""),
+            "departments_count": departments_count,
+            "services_count": len(hospital.get("services", [])),
+            "total_staff": 0,  # Placeholder
+            "total_patients": 0  # Placeholder
+        }
+    
+    elif role == UserRole.PHARMACY:
+        # Pharmacy dashboard stats
+        pharmacy = await db.pharmacies.find_one({"user_id": user_id})
+        if not pharmacy:
+            raise HTTPException(status_code=404, detail="Pharmacy profile not found")
+        
+        inventory_count = len(pharmacy.get("inventory", []))
+        
+        return {
+            "role": role,
+            "pharmacy_name": pharmacy.get("pharmacy_name", ""),
+            "inventory_count": inventory_count,
+            "total_orders": 0,  # Placeholder
+            "total_sales": 0,  # Placeholder
+            "low_stock_items": 0  # Placeholder
+        }
+    
+    elif role == UserRole.AMBULANCE:
+        # Ambulance dashboard stats
+        ambulance = await db.ambulances.find_one({"user_id": user_id})
+        if not ambulance:
+            raise HTTPException(status_code=404, detail="Ambulance profile not found")
+        
+        return {
+            "role": role,
+            "availability_status": ambulance.get("availability_status", "available"),
+            "service_areas": ambulance.get("service_areas", []),
+            "total_trips": 0,  # Placeholder
+            "active_bookings": 0,  # Placeholder
+            "completed_trips": 0  # Placeholder
+        }
+    
+    elif role == UserRole.HERBALIST:
+        # Herbalist dashboard stats
+        herbalist = await db.herbalists.find_one({"user_id": user_id})
+        if not herbalist:
+            raise HTTPException(status_code=404, detail="Herbalist profile not found")
+        
+        return {
+            "role": role,
+            "practice_years": herbalist.get("practice_years", 0),
+            "specializations": herbalist.get("specializations", []),
+            "rating": herbalist.get("rating", 0),
+            "total_reviews": herbalist.get("total_reviews", 0),
+            "total_consultations": 0  # Placeholder
+        }
+    
+    return {"role": role, "message": "Dashboard not configured for this role"}
+
+# Medicine/Inventory Management for Pharmacy
+class MedicineCreate(BaseModel):
+    name: str
+    description: str
+    price: float
+    stock: int
+    category: str
+
+@api_router.post("/pharmacies/medicines")
+async def add_medicine(medicine: MedicineCreate, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.PHARMACY:
+        raise HTTPException(status_code=403, detail="Only pharmacies can add medicines")
+    
+    user_id = str(current_user["_id"])
+    pharmacy = await db.pharmacies.find_one({"user_id": user_id})
+    
+    if not pharmacy:
+        raise HTTPException(status_code=404, detail="Pharmacy not found")
+    
+    medicine_doc = {
+        "id": str(uuid.uuid4()),
+        "name": medicine.name,
+        "description": medicine.description,
+        "price": medicine.price,
+        "stock": medicine.stock,
+        "category": medicine.category,
+        "added_at": datetime.utcnow()
+    }
+    
+    await db.pharmacies.update_one(
+        {"user_id": user_id},
+        {"$push": {"inventory": medicine_doc}}
+    )
+    
+    return {"message": "Medicine added successfully", "medicine": medicine_doc}
+
+@api_router.get("/pharmacies/inventory")
+async def get_pharmacy_inventory(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.PHARMACY:
+        raise HTTPException(status_code=403, detail="Only pharmacies can view inventory")
+    
+    user_id = str(current_user["_id"])
+    pharmacy = await db.pharmacies.find_one({"user_id": user_id})
+    
+    if not pharmacy:
+        raise HTTPException(status_code=404, detail="Pharmacy not found")
+    
+    return {
+        "pharmacy_name": pharmacy.get("pharmacy_name", ""),
+        "inventory": pharmacy.get("inventory", [])
+    }
+
+# Department Management for Hospital
+class DepartmentCreate(BaseModel):
+    name: str
+    head: str
+    description: str
+
+@api_router.post("/hospitals/departments")
+async def add_department(department: DepartmentCreate, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can add departments")
+    
+    user_id = str(current_user["_id"])
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    
+    if not hospital:
+        raise HTTPException(status_code=404, detail="Hospital not found")
+    
+    department_doc = {
+        "id": str(uuid.uuid4()),
+        "name": department.name,
+        "head": department.head,
+        "description": department.description,
+        "created_at": datetime.utcnow()
+    }
+    
+    await db.hospitals.update_one(
+        {"user_id": user_id},
+        {"$push": {"departments": department_doc}}
+    )
+    
+    return {"message": "Department added successfully", "department": department_doc}
+
+@api_router.get("/hospitals/departments")
+async def get_hospital_departments(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can view departments")
+    
+    user_id = str(current_user["_id"])
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    
+    if not hospital:
+        raise HTTPException(status_code=404, detail="Hospital not found")
+    
+    return {
+        "hospital_name": hospital.get("hospital_name", ""),
+        "departments": hospital.get("departments", [])
+    }
+
+# Availability Management for Ambulance
+class AvailabilityUpdate(BaseModel):
+    status: str  # available, busy, offline
+
+@api_router.put("/ambulances/availability")
+async def update_ambulance_availability(update: AvailabilityUpdate, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.AMBULANCE:
+        raise HTTPException(status_code=403, detail="Only ambulance services can update availability")
+    
+    user_id = str(current_user["_id"])
+    
+    await db.ambulances.update_one(
+        {"user_id": user_id},
+        {"$set": {"availability_status": update.status}}
+    )
+    
+    return {"message": "Availability updated successfully", "status": update.status}
+
 app.include_router(api_router)
 
 app.add_middleware(
