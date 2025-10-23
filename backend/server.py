@@ -2044,6 +2044,853 @@ async def get_faqs():
     
     return {"faqs": faqs}
 
+# ====================================
+# PHARMACY E-COMMERCE SYSTEM
+# ====================================
+
+# Pydantic Models for Pharmacy Products
+class ProductCreate(BaseModel):
+    name: str
+    description: str
+    price: float
+    category: str  # e.g., "Antibiotics", "Pain Relief", "Vitamins"
+    requires_prescription: bool = False
+    stock_quantity: int
+    image_base64: Optional[str] = None
+    manufacturer: Optional[str] = None
+    dosage_form: Optional[str] = None  # e.g., "Tablet", "Syrup", "Injection"
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    category: Optional[str] = None
+    requires_prescription: Optional[bool] = None
+    stock_quantity: Optional[int] = None
+    image_base64: Optional[str] = None
+    manufacturer: Optional[str] = None
+    dosage_form: Optional[str] = None
+
+class CartItem(BaseModel):
+    product_id: str
+    quantity: int
+
+class AddToCart(BaseModel):
+    product_id: str
+    quantity: int = 1
+
+class OrderCreate(BaseModel):
+    pharmacy_id: str
+    items: List[CartItem]
+    delivery_address: str
+    delivery_city: str
+    delivery_phone: str
+    prescription_image: Optional[str] = None  # base64 for prescription medicines
+    payment_method: str  # "mtn", "vodafone", "airteltigo"
+    payment_phone: str
+
+# Product Management APIs (Pharmacy Owners)
+@api_router.post("/products")
+async def create_product(
+    product: ProductCreate,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.PHARMACY:
+        raise HTTPException(status_code=403, detail="Only pharmacy owners can add products")
+    
+    pharmacy = await db.pharmacies.find_one({"user_id": user_id})
+    if not pharmacy:
+        raise HTTPException(status_code=404, detail="Pharmacy profile not found")
+    
+    product_doc = {
+        "pharmacy_id": str(pharmacy["_id"]),
+        "pharmacy_name": pharmacy.get("pharmacy_name", user["full_name"]),
+        "name": product.name,
+        "description": product.description,
+        "price": product.price,
+        "category": product.category,
+        "requires_prescription": product.requires_prescription,
+        "stock_quantity": product.stock_quantity,
+        "image_base64": product.image_base64,
+        "manufacturer": product.manufacturer,
+        "dosage_form": product.dosage_form,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await db.products.insert_one(product_doc)
+    return {"message": "Product created successfully", "product_id": str(result.inserted_id)}
+
+@api_router.get("/products")
+async def list_products(
+    pharmacy_id: Optional[str] = None,
+    category: Optional[str] = None,
+    search: Optional[str] = None
+):
+    query = {}
+    
+    if pharmacy_id:
+        query["pharmacy_id"] = pharmacy_id
+    
+    if category:
+        query["category"] = category
+    
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}},
+            {"manufacturer": {"$regex": search, "$options": "i"}}
+        ]
+    
+    products = await db.products.find(query).to_list(100)
+    
+    result = []
+    for product in products:
+        result.append({
+            "id": str(product["_id"]),
+            "pharmacy_id": product["pharmacy_id"],
+            "pharmacy_name": product.get("pharmacy_name", ""),
+            "name": product["name"],
+            "description": product["description"],
+            "price": product["price"],
+            "category": product["category"],
+            "requires_prescription": product.get("requires_prescription", False),
+            "stock_quantity": product["stock_quantity"],
+            "image_base64": product.get("image_base64"),
+            "manufacturer": product.get("manufacturer"),
+            "dosage_form": product.get("dosage_form"),
+            "in_stock": product["stock_quantity"] > 0
+        })
+    
+    return result
+
+@api_router.get("/products/{product_id}")
+async def get_product(product_id: str):
+    try:
+        product = await db.products.find_one({"_id": ObjectId(product_id)})
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        return {
+            "id": str(product["_id"]),
+            "pharmacy_id": product["pharmacy_id"],
+            "pharmacy_name": product.get("pharmacy_name", ""),
+            "name": product["name"],
+            "description": product["description"],
+            "price": product["price"],
+            "category": product["category"],
+            "requires_prescription": product.get("requires_prescription", False),
+            "stock_quantity": product["stock_quantity"],
+            "image_base64": product.get("image_base64"),
+            "manufacturer": product.get("manufacturer"),
+            "dosage_form": product.get("dosage_form"),
+            "in_stock": product["stock_quantity"] > 0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.put("/products/{product_id}")
+async def update_product(
+    product_id: str,
+    product_update: ProductUpdate,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.PHARMACY:
+        raise HTTPException(status_code=403, detail="Only pharmacy owners can update products")
+    
+    pharmacy = await db.pharmacies.find_one({"user_id": user_id})
+    product = await db.products.find_one({"_id": ObjectId(product_id)})
+    
+    if not product or product["pharmacy_id"] != str(pharmacy["_id"]):
+        raise HTTPException(status_code=404, detail="Product not found or unauthorized")
+    
+    update_data = {k: v for k, v in product_update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.products.update_one({"_id": ObjectId(product_id)}, {"$set": update_data})
+    return {"message": "Product updated successfully"}
+
+@api_router.delete("/products/{product_id}")
+async def delete_product(
+    product_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.PHARMACY:
+        raise HTTPException(status_code=403, detail="Only pharmacy owners can delete products")
+    
+    pharmacy = await db.pharmacies.find_one({"user_id": user_id})
+    product = await db.products.find_one({"_id": ObjectId(product_id)})
+    
+    if not product or product["pharmacy_id"] != str(pharmacy["_id"]):
+        raise HTTPException(status_code=404, detail="Product not found or unauthorized")
+    
+    await db.products.delete_one({"_id": ObjectId(product_id)})
+    return {"message": "Product deleted successfully"}
+
+# Shopping Cart APIs
+@api_router.post("/cart/add")
+async def add_to_cart(
+    item: AddToCart,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    # Verify product exists and has stock
+    product = await db.products.find_one({"_id": ObjectId(item.product_id)})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    if product["stock_quantity"] < item.quantity:
+        raise HTTPException(status_code=400, detail="Insufficient stock")
+    
+    # Check if cart exists for user
+    cart = await db.carts.find_one({"user_id": user_id})
+    
+    if not cart:
+        # Create new cart
+        cart_doc = {
+            "user_id": user_id,
+            "items": [{
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "added_at": datetime.utcnow()
+            }],
+            "updated_at": datetime.utcnow()
+        }
+        await db.carts.insert_one(cart_doc)
+    else:
+        # Update existing cart
+        item_exists = False
+        for cart_item in cart["items"]:
+            if cart_item["product_id"] == item.product_id:
+                cart_item["quantity"] += item.quantity
+                item_exists = True
+                break
+        
+        if not item_exists:
+            cart["items"].append({
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "added_at": datetime.utcnow()
+            })
+        
+        await db.carts.update_one(
+            {"user_id": user_id},
+            {"$set": {"items": cart["items"], "updated_at": datetime.utcnow()}}
+        )
+    
+    return {"message": "Item added to cart successfully"}
+
+@api_router.get("/cart")
+async def get_cart(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    user_id = verify_token(credentials.credentials)
+    
+    cart = await db.carts.find_one({"user_id": user_id})
+    if not cart:
+        return {"items": [], "total": 0}
+    
+    # Populate cart with product details
+    cart_items = []
+    total = 0
+    
+    for item in cart["items"]:
+        product = await db.products.find_one({"_id": ObjectId(item["product_id"])})
+        if product:
+            item_total = product["price"] * item["quantity"]
+            total += item_total
+            
+            cart_items.append({
+                "product_id": str(product["_id"]),
+                "name": product["name"],
+                "price": product["price"],
+                "quantity": item["quantity"],
+                "image_base64": product.get("image_base64"),
+                "pharmacy_name": product.get("pharmacy_name", ""),
+                "requires_prescription": product.get("requires_prescription", False),
+                "in_stock": product["stock_quantity"] >= item["quantity"],
+                "item_total": item_total
+            })
+    
+    return {"items": cart_items, "total": total}
+
+@api_router.delete("/cart/item/{product_id}")
+async def remove_from_cart(
+    product_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    cart = await db.carts.find_one({"user_id": user_id})
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+    
+    cart["items"] = [item for item in cart["items"] if item["product_id"] != product_id]
+    
+    await db.carts.update_one(
+        {"user_id": user_id},
+        {"$set": {"items": cart["items"], "updated_at": datetime.utcnow()}}
+    )
+    
+    return {"message": "Item removed from cart"}
+
+@api_router.put("/cart/item/{product_id}")
+async def update_cart_quantity(
+    product_id: str,
+    quantity: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    if quantity < 1:
+        raise HTTPException(status_code=400, detail="Quantity must be at least 1")
+    
+    product = await db.products.find_one({"_id": ObjectId(product_id)})
+    if not product or product["stock_quantity"] < quantity:
+        raise HTTPException(status_code=400, detail="Insufficient stock")
+    
+    cart = await db.carts.find_one({"user_id": user_id})
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+    
+    for item in cart["items"]:
+        if item["product_id"] == product_id:
+            item["quantity"] = quantity
+            break
+    
+    await db.carts.update_one(
+        {"user_id": user_id},
+        {"$set": {"items": cart["items"], "updated_at": datetime.utcnow()}}
+    )
+    
+    return {"message": "Cart updated successfully"}
+
+# Order Management APIs
+@api_router.post("/orders")
+async def create_order(
+    order: OrderCreate,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    # Verify stock availability
+    total_amount = 0
+    order_items = []
+    
+    for item in order.items:
+        product = await db.products.find_one({"_id": ObjectId(item.product_id)})
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
+        
+        if product["stock_quantity"] < item.quantity:
+            raise HTTPException(status_code=400, detail=f"Insufficient stock for {product['name']}")
+        
+        item_total = product["price"] * item.quantity
+        total_amount += item_total
+        
+        order_items.append({
+            "product_id": item.product_id,
+            "product_name": product["name"],
+            "price": product["price"],
+            "quantity": item.quantity,
+            "requires_prescription": product.get("requires_prescription", False),
+            "item_total": item_total
+        })
+    
+    # Create order
+    order_doc = {
+        "user_id": user_id,
+        "customer_name": user["full_name"],
+        "customer_email": user["email"],
+        "customer_phone": user["phone"],
+        "pharmacy_id": order.pharmacy_id,
+        "items": order_items,
+        "total_amount": total_amount,
+        "delivery_address": order.delivery_address,
+        "delivery_city": order.delivery_city,
+        "delivery_phone": order.delivery_phone,
+        "prescription_image": order.prescription_image,
+        "payment_method": order.payment_method,
+        "payment_phone": order.payment_phone,
+        "payment_status": "pending",
+        "order_status": "pending",  # pending, confirmed, processing, shipped, delivered, cancelled
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await db.orders.insert_one(order_doc)
+    order_id = str(result.inserted_id)
+    
+    # Reduce stock quantities
+    for item in order.items:
+        await db.products.update_one(
+            {"_id": ObjectId(item.product_id)},
+            {"$inc": {"stock_quantity": -item.quantity}}
+        )
+    
+    # Clear cart
+    await db.carts.delete_one({"user_id": user_id})
+    
+    # Mock payment processing
+    payment_reference = f"PAY-{order_id[:8]}-{datetime.utcnow().timestamp()}"
+    
+    await db.orders.update_one(
+        {"_id": ObjectId(order_id)},
+        {"$set": {
+            "payment_status": "completed",
+            "payment_reference": payment_reference,
+            "payment_completed_at": datetime.utcnow(),
+            "order_status": "confirmed"
+        }}
+    )
+    
+    return {
+        "message": "Order placed successfully",
+        "order_id": order_id,
+        "payment_reference": payment_reference,
+        "total_amount": total_amount,
+        "payment_status": "completed"
+    }
+
+@api_router.get("/orders/my-orders")
+async def get_my_orders(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    user_id = verify_token(credentials.credentials)
+    
+    orders = await db.orders.find({"user_id": user_id}).sort("created_at", -1).to_list(100)
+    
+    result = []
+    for order in orders:
+        result.append({
+            "id": str(order["_id"]),
+            "order_status": order["order_status"],
+            "payment_status": order["payment_status"],
+            "total_amount": order["total_amount"],
+            "items_count": len(order["items"]),
+            "delivery_address": order["delivery_address"],
+            "payment_method": order["payment_method"],
+            "payment_reference": order.get("payment_reference", ""),
+            "created_at": order["created_at"].isoformat(),
+            "items": order["items"]
+        })
+    
+    return result
+
+@api_router.get("/orders/{order_id}")
+async def get_order_details(
+    order_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    try:
+        order = await db.orders.find_one({"_id": ObjectId(order_id)})
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        if order["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        
+        return {
+            "id": str(order["_id"]),
+            "order_status": order["order_status"],
+            "payment_status": order["payment_status"],
+            "total_amount": order["total_amount"],
+            "delivery_address": order["delivery_address"],
+            "delivery_city": order["delivery_city"],
+            "delivery_phone": order["delivery_phone"],
+            "payment_method": order["payment_method"],
+            "payment_phone": order["payment_phone"],
+            "payment_reference": order.get("payment_reference", ""),
+            "created_at": order["created_at"].isoformat(),
+            "items": order["items"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ====================================
+# AMBULANCE BOOKING SYSTEM
+# ====================================
+
+class AmbulanceBooking(BaseModel):
+    ambulance_id: str
+    booking_type: str  # "immediate" or "scheduled"
+    scheduled_datetime: Optional[str] = None  # ISO format for scheduled bookings
+    pickup_address: str
+    pickup_latitude: Optional[float] = None
+    pickup_longitude: Optional[float] = None
+    destination_address: str
+    destination_latitude: Optional[float] = None
+    destination_longitude: Optional[float] = None
+    emergency_type: str  # e.g., "accident", "cardiac", "respiratory", "other"
+    patient_condition: str
+    patient_name: str
+    patient_phone: str
+    additional_notes: Optional[str] = None
+
+@api_router.post("/ambulance/book")
+async def book_ambulance(
+    booking: AmbulanceBooking,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    # Verify ambulance exists
+    ambulance = await db.ambulances.find_one({"_id": ObjectId(booking.ambulance_id)})
+    if not ambulance:
+        raise HTTPException(status_code=404, detail="Ambulance service not found")
+    
+    ambulance_user = await db.users.find_one({"_id": ObjectId(ambulance["user_id"])})
+    
+    # Calculate distance-based pricing (mock calculation: GH₵5 per km + base fare GH₵50)
+    # In real implementation, use Google Maps Distance Matrix API
+    base_fare = 50.0
+    estimated_distance_km = 10.0  # Mock distance
+    price_per_km = 5.0
+    total_price = base_fare + (estimated_distance_km * price_per_km)
+    
+    # Create booking
+    booking_doc = {
+        "user_id": user_id,
+        "patient_name": booking.patient_name,
+        "patient_phone": booking.patient_phone,
+        "ambulance_id": booking.ambulance_id,
+        "service_name": ambulance_user["full_name"],
+        "service_phone": ambulance_user["phone"],
+        "booking_type": booking.booking_type,
+        "scheduled_datetime": booking.scheduled_datetime,
+        "pickup_address": booking.pickup_address,
+        "pickup_latitude": booking.pickup_latitude,
+        "pickup_longitude": booking.pickup_longitude,
+        "destination_address": booking.destination_address,
+        "destination_latitude": booking.destination_latitude,
+        "destination_longitude": booking.destination_longitude,
+        "emergency_type": booking.emergency_type,
+        "patient_condition": booking.patient_condition,
+        "additional_notes": booking.additional_notes,
+        "estimated_distance_km": estimated_distance_km,
+        "base_fare": base_fare,
+        "price_per_km": price_per_km,
+        "total_price": total_price,
+        "booking_status": "confirmed",  # confirmed, en_route, arrived, completed, cancelled
+        "payment_status": "pending",
+        "driver_name": "Mock Driver",  # In real implementation, assign actual driver
+        "driver_phone": "+233501234567",
+        "vehicle_number": "GH-123-ABC",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await db.ambulance_bookings.insert_one(booking_doc)
+    booking_id = str(result.inserted_id)
+    
+    return {
+        "message": "Ambulance booked successfully",
+        "booking_id": booking_id,
+        "service_name": ambulance_user["full_name"],
+        "service_phone": ambulance_user["phone"],
+        "driver_name": "Mock Driver",
+        "driver_phone": "+233501234567",
+        "vehicle_number": "GH-123-ABC",
+        "estimated_distance_km": estimated_distance_km,
+        "total_price": total_price,
+        "booking_status": "confirmed"
+    }
+
+@api_router.get("/ambulance/bookings")
+async def get_my_ambulance_bookings(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    user_id = verify_token(credentials.credentials)
+    
+    bookings = await db.ambulance_bookings.find({"user_id": user_id}).sort("created_at", -1).to_list(100)
+    
+    result = []
+    for booking in bookings:
+        result.append({
+            "id": str(booking["_id"]),
+            "service_name": booking["service_name"],
+            "booking_type": booking["booking_type"],
+            "booking_status": booking["booking_status"],
+            "pickup_address": booking["pickup_address"],
+            "destination_address": booking["destination_address"],
+            "emergency_type": booking["emergency_type"],
+            "total_price": booking["total_price"],
+            "driver_name": booking.get("driver_name", ""),
+            "driver_phone": booking.get("driver_phone", ""),
+            "vehicle_number": booking.get("vehicle_number", ""),
+            "created_at": booking["created_at"].isoformat()
+        })
+    
+    return result
+
+@api_router.get("/ambulance/bookings/{booking_id}")
+async def get_ambulance_booking_details(
+    booking_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    try:
+        booking = await db.ambulance_bookings.find_one({"_id": ObjectId(booking_id)})
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        if booking["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        
+        return {
+            "id": str(booking["_id"]),
+            "service_name": booking["service_name"],
+            "service_phone": booking["service_phone"],
+            "booking_type": booking["booking_type"],
+            "scheduled_datetime": booking.get("scheduled_datetime"),
+            "booking_status": booking["booking_status"],
+            "payment_status": booking["payment_status"],
+            "pickup_address": booking["pickup_address"],
+            "pickup_latitude": booking.get("pickup_latitude"),
+            "pickup_longitude": booking.get("pickup_longitude"),
+            "destination_address": booking["destination_address"],
+            "destination_latitude": booking.get("destination_latitude"),
+            "destination_longitude": booking.get("destination_longitude"),
+            "emergency_type": booking["emergency_type"],
+            "patient_condition": booking["patient_condition"],
+            "patient_name": booking["patient_name"],
+            "patient_phone": booking["patient_phone"],
+            "additional_notes": booking.get("additional_notes"),
+            "estimated_distance_km": booking["estimated_distance_km"],
+            "base_fare": booking["base_fare"],
+            "price_per_km": booking["price_per_km"],
+            "total_price": booking["total_price"],
+            "driver_name": booking.get("driver_name", ""),
+            "driver_phone": booking.get("driver_phone", ""),
+            "vehicle_number": booking.get("vehicle_number", ""),
+            "created_at": booking["created_at"].isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/ambulance/track/{booking_id}")
+async def track_ambulance(
+    booking_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    try:
+        booking = await db.ambulance_bookings.find_one({"_id": ObjectId(booking_id)})
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        if booking["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        
+        # Mock live tracking data
+        # In real implementation, use GPS tracking from driver's device
+        mock_current_location = {
+            "latitude": 5.6037 + (0.01 if booking.get("pickup_latitude") else 0),
+            "longitude": -0.1870 + (0.01 if booking.get("pickup_longitude") else 0)
+        }
+        
+        return {
+            "booking_id": str(booking["_id"]),
+            "booking_status": booking["booking_status"],
+            "driver_name": booking.get("driver_name", ""),
+            "driver_phone": booking.get("driver_phone", ""),
+            "vehicle_number": booking.get("vehicle_number", ""),
+            "current_location": mock_current_location,
+            "estimated_arrival_minutes": 15,
+            "last_updated": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ====================================
+# VIDEO CONSULTATION SYSTEM
+# ====================================
+
+class ConsultationSchedule(BaseModel):
+    doctor_id: str
+    scheduled_datetime: str  # ISO format
+    consultation_type: str  # "video" or "audio"
+    reason: str
+    symptoms: Optional[str] = None
+
+@api_router.post("/consultations/schedule")
+async def schedule_consultation(
+    schedule: ConsultationSchedule,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    # Verify doctor exists
+    doctor = await db.doctors.find_one({"_id": ObjectId(schedule.doctor_id)})
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    doctor_user = await db.users.find_one({"_id": ObjectId(doctor["user_id"])})
+    
+    # Create consultation appointment
+    consultation_doc = {
+        "patient_id": user_id,
+        "patient_name": user["full_name"],
+        "patient_email": user["email"],
+        "patient_phone": user["phone"],
+        "doctor_id": schedule.doctor_id,
+        "doctor_name": doctor_user["full_name"],
+        "doctor_specialty": doctor["specialty"],
+        "scheduled_datetime": schedule.scheduled_datetime,
+        "consultation_type": schedule.consultation_type,
+        "reason": schedule.reason,
+        "symptoms": schedule.symptoms,
+        "status": "scheduled",  # scheduled, in_progress, completed, cancelled
+        "consultation_fee": doctor.get("consultation_fee", 100.0),
+        "payment_status": "pending",
+        "room_id": f"room-{uuid.uuid4().hex[:12]}",  # Mock room ID for Agora
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await db.consultations.insert_one(consultation_doc)
+    consultation_id = str(result.inserted_id)
+    
+    return {
+        "message": "Consultation scheduled successfully",
+        "consultation_id": consultation_id,
+        "doctor_name": doctor_user["full_name"],
+        "scheduled_datetime": schedule.scheduled_datetime,
+        "consultation_fee": doctor.get("consultation_fee", 100.0),
+        "room_id": consultation_doc["room_id"]
+    }
+
+@api_router.get("/consultations/my-consultations")
+async def get_my_consultations(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    user_id = verify_token(credentials.credentials)
+    
+    consultations = await db.consultations.find({"patient_id": user_id}).sort("scheduled_datetime", -1).to_list(100)
+    
+    result = []
+    for consultation in consultations:
+        result.append({
+            "id": str(consultation["_id"]),
+            "doctor_name": consultation["doctor_name"],
+            "doctor_specialty": consultation["doctor_specialty"],
+            "scheduled_datetime": consultation["scheduled_datetime"],
+            "consultation_type": consultation["consultation_type"],
+            "status": consultation["status"],
+            "reason": consultation["reason"],
+            "consultation_fee": consultation["consultation_fee"],
+            "payment_status": consultation["payment_status"],
+            "room_id": consultation["room_id"]
+        })
+    
+    return result
+
+@api_router.get("/consultations/{consultation_id}")
+async def get_consultation_details(
+    consultation_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    try:
+        consultation = await db.consultations.find_one({"_id": ObjectId(consultation_id)})
+        if not consultation:
+            raise HTTPException(status_code=404, detail="Consultation not found")
+        
+        if consultation["patient_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        
+        return {
+            "id": str(consultation["_id"]),
+            "patient_name": consultation["patient_name"],
+            "doctor_name": consultation["doctor_name"],
+            "doctor_specialty": consultation["doctor_specialty"],
+            "scheduled_datetime": consultation["scheduled_datetime"],
+            "consultation_type": consultation["consultation_type"],
+            "status": consultation["status"],
+            "reason": consultation["reason"],
+            "symptoms": consultation.get("symptoms"),
+            "consultation_fee": consultation["consultation_fee"],
+            "payment_status": consultation["payment_status"],
+            "room_id": consultation["room_id"],
+            "created_at": consultation["created_at"].isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/consultations/{consultation_id}/join")
+async def join_consultation(
+    consultation_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    try:
+        consultation = await db.consultations.find_one({"_id": ObjectId(consultation_id)})
+        if not consultation:
+            raise HTTPException(status_code=404, detail="Consultation not found")
+        
+        if consultation["patient_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        
+        # Update status to in_progress
+        await db.consultations.update_one(
+            {"_id": ObjectId(consultation_id)},
+            {"$set": {"status": "in_progress", "updated_at": datetime.utcnow()}}
+        )
+        
+        # Mock Agora token generation
+        # In real implementation, generate actual Agora token using App ID and Certificate
+        mock_agora_token = f"mock-token-{uuid.uuid4().hex[:16]}"
+        
+        return {
+            "room_id": consultation["room_id"],
+            "agora_token": mock_agora_token,
+            "agora_app_id": "mock-app-id",  # In real implementation, use actual Agora App ID
+            "doctor_name": consultation["doctor_name"],
+            "consultation_type": consultation["consultation_type"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/consultations/{consultation_id}/end")
+async def end_consultation(
+    consultation_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    try:
+        consultation = await db.consultations.find_one({"_id": ObjectId(consultation_id)})
+        if not consultation:
+            raise HTTPException(status_code=404, detail="Consultation not found")
+        
+        if consultation["patient_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        
+        # Update status to completed
+        await db.consultations.update_one(
+            {"_id": ObjectId(consultation_id)},
+            {"$set": {
+                "status": "completed",
+                "completed_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        
+        return {"message": "Consultation ended successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 app.include_router(api_router)
 
 app.add_middleware(
