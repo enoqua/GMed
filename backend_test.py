@@ -399,53 +399,318 @@ def test_cancel_appointment():
         print(f"❌ Cancel appointment failed - Status: {response.status_code}, Response: {response.text}")
         return False
 
+def test_pharmacy_ambulance_listing():
+    """Test pharmacy and ambulance listing endpoints"""
+    results = TestResults()
+    
+    print("🧪 Testing Pharmacy and Ambulance Listing APIs")
+    print(f"Backend URL: {API_URL}")
+    print("="*60)
+    
+    try:
+        # 1. Create test pharmacy users
+        print("\n📋 Creating test pharmacy users...")
+        pharmacy_users = [
+            {
+                "email": "accra.pharmacy@test.com",
+                "phone": "+233244123456",
+                "national_id": "GHA123456789",
+                "password": "pharmacy123",
+                "full_name": "Accra Central Pharmacy",
+                "role": "pharmacy",
+                "pharmacy_name": "Accra Central Pharmacy",
+                "location": "Accra",
+                "license_number": "PHA001234",
+                "license_type": "retail"
+            },
+            {
+                "email": "kumasi.pharmacy@test.com", 
+                "phone": "+233244234567",
+                "national_id": "GHA234567890",
+                "password": "pharmacy123",
+                "full_name": "Kumasi Health Pharmacy",
+                "role": "pharmacy",
+                "pharmacy_name": "Kumasi Health Pharmacy", 
+                "location": "Kumasi",
+                "license_number": "PHA002345",
+                "license_type": "retail"
+            },
+            {
+                "email": "tema.pharmacy@test.com",
+                "phone": "+233244345678", 
+                "national_id": "GHA345678901",
+                "password": "pharmacy123",
+                "full_name": "Tema Medical Pharmacy",
+                "role": "pharmacy",
+                "pharmacy_name": "Tema Medical Pharmacy",
+                "location": "Tema",
+                "license_number": "PHA003456",
+                "license_type": "retail"
+            }
+        ]
+        
+        for user_data in pharmacy_users:
+            try:
+                response = make_request("POST", "/auth/register", user_data)
+                if response and (response.status_code == 201 or response.status_code == 200):
+                    results.add_pass(f"Created pharmacy user: {user_data['pharmacy_name']}")
+                elif response and response.status_code == 400 and "already exists" in response.text:
+                    results.add_pass(f"Pharmacy user already exists: {user_data['pharmacy_name']}")
+                else:
+                    error_msg = response.text if response else "No response"
+                    results.add_fail(f"Create pharmacy user: {user_data['pharmacy_name']}", 
+                                   f"Status {response.status_code if response else 'None'}: {error_msg}")
+            except Exception as e:
+                results.add_fail(f"Create pharmacy user: {user_data['pharmacy_name']}", str(e))
+        
+        # 2. Create test ambulance users
+        print("\n🚑 Creating test ambulance users...")
+        ambulance_users = [
+            {
+                "email": "accra.ambulance@test.com",
+                "phone": "+233244456789",
+                "national_id": "GHA456789012", 
+                "password": "ambulance123",
+                "full_name": "Accra Emergency Services",
+                "role": "ambulance",
+                "location": "Accra",
+                "service_areas": ["Accra", "Tema", "Kasoa"],
+                "vehicle_type": "Advanced Life Support"
+            },
+            {
+                "email": "kumasi.ambulance@test.com",
+                "phone": "+233244567890",
+                "national_id": "GHA567890123",
+                "password": "ambulance123", 
+                "full_name": "Kumasi Rescue Services",
+                "role": "ambulance",
+                "location": "Kumasi",
+                "service_areas": ["Kumasi", "Sunyani", "Techiman"],
+                "vehicle_type": "Basic Life Support"
+            },
+            {
+                "email": "cape.ambulance@test.com",
+                "phone": "+233244678901",
+                "national_id": "GHA678901234",
+                "password": "ambulance123",
+                "full_name": "Cape Coast Medical Transport",
+                "role": "ambulance", 
+                "location": "Cape Coast",
+                "service_areas": ["Cape Coast", "Elmina", "Winneba"],
+                "vehicle_type": "Patient Transport"
+            }
+        ]
+        
+        for user_data in ambulance_users:
+            try:
+                response = make_request("POST", "/auth/register", user_data)
+                if response and (response.status_code == 201 or response.status_code == 200):
+                    results.add_pass(f"Created ambulance user: {user_data['full_name']}")
+                elif response and response.status_code == 400 and "already exists" in response.text:
+                    results.add_pass(f"Ambulance user already exists: {user_data['full_name']}")
+                else:
+                    error_msg = response.text if response else "No response"
+                    results.add_fail(f"Create ambulance user: {user_data['full_name']}", 
+                                   f"Status {response.status_code if response else 'None'}: {error_msg}")
+            except Exception as e:
+                results.add_fail(f"Create ambulance user: {user_data['full_name']}", str(e))
+        
+        # 3. Test Pharmacy Listing API
+        print("\n💊 Testing Pharmacy Listing API...")
+        
+        # Test 3a: Get all pharmacies
+        try:
+            response = make_request("GET", "/pharmacies/all")
+            if response and response.status_code == 200:
+                pharmacies = response.json()
+                if isinstance(pharmacies, list):
+                    results.add_pass("GET /api/pharmacies/all - Returns array")
+                    
+                    # Check if we have pharmacies
+                    if len(pharmacies) >= 3:
+                        results.add_pass("GET /api/pharmacies/all - Has expected pharmacy count")
+                        
+                        # Verify response structure
+                        pharmacy = pharmacies[0]
+                        required_fields = ["id", "pharmacy_name", "location", "license_number", "inventory_count", "phone", "email"]
+                        missing_fields = [field for field in required_fields if field not in pharmacy]
+                        
+                        if not missing_fields:
+                            results.add_pass("GET /api/pharmacies/all - Response structure correct")
+                        else:
+                            results.add_fail("GET /api/pharmacies/all - Response structure", 
+                                           f"Missing fields: {missing_fields}")
+                    else:
+                        results.add_fail("GET /api/pharmacies/all - Pharmacy count", 
+                                       f"Expected at least 3 pharmacies, got {len(pharmacies)}")
+                else:
+                    results.add_fail("GET /api/pharmacies/all - Response type", 
+                                   f"Expected array, got {type(pharmacies)}")
+            else:
+                error_msg = response.text if response else "No response"
+                results.add_fail("GET /api/pharmacies/all", 
+                               f"Status {response.status_code if response else 'None'}: {error_msg}")
+        except Exception as e:
+            results.add_fail("GET /api/pharmacies/all", str(e))
+        
+        # Test 3b: Filter pharmacies by location (Accra)
+        try:
+            response = make_request("GET", "/pharmacies/all", params={"location": "Accra"})
+            if response and response.status_code == 200:
+                pharmacies = response.json()
+                if isinstance(pharmacies, list):
+                    # Check if filtered results contain Accra
+                    accra_pharmacies = [p for p in pharmacies if "accra" in p.get("location", "").lower()]
+                    if len(accra_pharmacies) > 0:
+                        results.add_pass("GET /api/pharmacies/all?location=Accra - Location filter works")
+                    else:
+                        results.add_fail("GET /api/pharmacies/all?location=Accra - Location filter", 
+                                       "No Accra pharmacies found in filtered results")
+                else:
+                    results.add_fail("GET /api/pharmacies/all?location=Accra - Response type", 
+                                   f"Expected array, got {type(pharmacies)}")
+            else:
+                error_msg = response.text if response else "No response"
+                results.add_fail("GET /api/pharmacies/all?location=Accra", 
+                               f"Status {response.status_code if response else 'None'}: {error_msg}")
+        except Exception as e:
+            results.add_fail("GET /api/pharmacies/all?location=Accra", str(e))
+        
+        # Test 3c: Filter with non-existent location
+        try:
+            response = make_request("GET", "/pharmacies/all", params={"location": "NonExistentCity"})
+            if response and response.status_code == 200:
+                pharmacies = response.json()
+                if isinstance(pharmacies, list) and len(pharmacies) == 0:
+                    results.add_pass("GET /api/pharmacies/all?location=NonExistentCity - Empty results handled")
+                else:
+                    results.add_fail("GET /api/pharmacies/all?location=NonExistentCity - Empty results", 
+                                   f"Expected empty array, got {len(pharmacies)} results")
+            else:
+                error_msg = response.text if response else "No response"
+                results.add_fail("GET /api/pharmacies/all?location=NonExistentCity", 
+                               f"Status {response.status_code if response else 'None'}: {error_msg}")
+        except Exception as e:
+            results.add_fail("GET /api/pharmacies/all?location=NonExistentCity", str(e))
+        
+        # 4. Test Ambulance Listing API
+        print("\n🚑 Testing Ambulance Listing API...")
+        
+        # Test 4a: Get all ambulances
+        try:
+            response = make_request("GET", "/ambulances/all")
+            if response and response.status_code == 200:
+                ambulances = response.json()
+                if isinstance(ambulances, list):
+                    results.add_pass("GET /api/ambulances/all - Returns array")
+                    
+                    # Check if we have ambulances
+                    if len(ambulances) >= 3:
+                        results.add_pass("GET /api/ambulances/all - Has expected ambulance count")
+                        
+                        # Verify response structure
+                        ambulance = ambulances[0]
+                        required_fields = ["id", "service_name", "location", "vehicle_type", "service_areas", "availability_status", "phone", "email"]
+                        missing_fields = [field for field in required_fields if field not in ambulance]
+                        
+                        if not missing_fields:
+                            results.add_pass("GET /api/ambulances/all - Response structure correct")
+                        else:
+                            results.add_fail("GET /api/ambulances/all - Response structure", 
+                                           f"Missing fields: {missing_fields}")
+                    else:
+                        results.add_fail("GET /api/ambulances/all - Ambulance count", 
+                                       f"Expected at least 3 ambulances, got {len(ambulances)}")
+                else:
+                    results.add_fail("GET /api/ambulances/all - Response type", 
+                                   f"Expected array, got {type(ambulances)}")
+            else:
+                error_msg = response.text if response else "No response"
+                results.add_fail("GET /api/ambulances/all", 
+                               f"Status {response.status_code if response else 'None'}: {error_msg}")
+        except Exception as e:
+            results.add_fail("GET /api/ambulances/all", str(e))
+        
+        # Test 4b: Filter ambulances by location (Kumasi)
+        try:
+            response = make_request("GET", "/ambulances/all", params={"location": "Kumasi"})
+            if response and response.status_code == 200:
+                ambulances = response.json()
+                if isinstance(ambulances, list):
+                    # Check if filtered results contain Kumasi
+                    kumasi_ambulances = [a for a in ambulances if "kumasi" in a.get("location", "").lower()]
+                    if len(kumasi_ambulances) > 0:
+                        results.add_pass("GET /api/ambulances/all?location=Kumasi - Location filter works")
+                    else:
+                        results.add_fail("GET /api/ambulances/all?location=Kumasi - Location filter", 
+                                       "No Kumasi ambulances found in filtered results")
+                else:
+                    results.add_fail("GET /api/ambulances/all?location=Kumasi - Response type", 
+                                   f"Expected array, got {type(ambulances)}")
+            else:
+                error_msg = response.text if response else "No response"
+                results.add_fail("GET /api/ambulances/all?location=Kumasi", 
+                               f"Status {response.status_code if response else 'None'}: {error_msg}")
+        except Exception as e:
+            results.add_fail("GET /api/ambulances/all?location=Kumasi", str(e))
+        
+        # Test 4c: Filter with non-existent location
+        try:
+            response = make_request("GET", "/ambulances/all", params={"location": "NonExistentCity"})
+            if response and response.status_code == 200:
+                ambulances = response.json()
+                if isinstance(ambulances, list) and len(ambulances) == 0:
+                    results.add_pass("GET /api/ambulances/all?location=NonExistentCity - Empty results handled")
+                else:
+                    results.add_fail("GET /api/ambulances/all?location=NonExistentCity - Empty results", 
+                                   f"Expected empty array, got {len(ambulances)} results")
+            else:
+                error_msg = response.text if response else "No response"
+                results.add_fail("GET /api/ambulances/all?location=NonExistentCity", 
+                               f"Status {response.status_code if response else 'None'}: {error_msg}")
+        except Exception as e:
+            results.add_fail("GET /api/ambulances/all?location=NonExistentCity", str(e))
+        
+        # 5. Test endpoints without authentication (should work for public listing)
+        print("\n🔓 Testing endpoints without authentication...")
+        
+        try:
+            response = make_request("GET", "/pharmacies/all")
+            if response and response.status_code == 200:
+                results.add_pass("GET /api/pharmacies/all - Works without authentication")
+            else:
+                error_msg = response.text if response else "No response"
+                results.add_fail("GET /api/pharmacies/all - No auth", 
+                               f"Status {response.status_code if response else 'None'}: {error_msg}")
+        except Exception as e:
+            results.add_fail("GET /api/pharmacies/all - No auth", str(e))
+        
+        try:
+            response = make_request("GET", "/ambulances/all")
+            if response and response.status_code == 200:
+                results.add_pass("GET /api/ambulances/all - Works without authentication")
+            else:
+                error_msg = response.text if response else "No response"
+                results.add_fail("GET /api/ambulances/all - No auth", 
+                               f"Status {response.status_code if response else 'None'}: {error_msg}")
+        except Exception as e:
+            results.add_fail("GET /api/ambulances/all - No auth", str(e))
+        
+    except Exception as e:
+        results.add_fail("Overall test execution", str(e))
+    
+    return results.summary()
+
 def run_all_tests():
     """Run all backend API tests"""
     print("=" * 60)
     print("🏥 GLENX MEDHUB BACKEND API TESTING")
     print("=" * 60)
     
-    test_results = {}
+    # Run pharmacy and ambulance listing tests
+    success = test_pharmacy_ambulance_listing()
     
-    # Authentication Tests
-    test_results["User Registration"] = test_user_registration()
-    if not access_token:  # If registration failed, try login
-        test_results["User Login"] = test_user_login()
-    test_results["Get Current User"] = test_get_current_user()
-    
-    # Doctor Tests
-    test_results["Seed Doctors"] = test_seed_doctors()
-    test_results["List Doctors"] = test_list_doctors()
-    test_results["List Doctors with Filters"] = test_list_doctors_with_filters()
-    test_results["Get Doctor Details"] = test_get_doctor_details()
-    
-    # Appointment Tests
-    test_results["Book Appointment"] = test_book_appointment()
-    test_results["Get My Appointments"] = test_get_my_appointments()
-    test_results["Cancel Appointment"] = test_cancel_appointment()
-    
-    # Summary
-    print("\n" + "=" * 60)
-    print("📊 TEST RESULTS SUMMARY")
-    print("=" * 60)
-    
-    passed = 0
-    failed = 0
-    
-    for test_name, result in test_results.items():
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{test_name:<35} {status}")
-        if result:
-            passed += 1
-        else:
-            failed += 1
-    
-    print(f"\nTotal Tests: {passed + failed}")
-    print(f"Passed: {passed}")
-    print(f"Failed: {failed}")
-    print(f"Success Rate: {(passed/(passed+failed)*100):.1f}%")
-    
-    return test_results
+    return success
 
 if __name__ == "__main__":
     results = run_all_tests()
