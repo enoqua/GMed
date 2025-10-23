@@ -184,11 +184,25 @@ export default function DoctorDetailScreen() {
             <DateTimePicker
               value={bookingData.scheduled_time}
               mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               minimumDate={new Date()}
-              onChange={(event, date) => {
-                setShowDatePicker(Platform.OS === 'ios');
-                if (date) {
-                  setBookingData({ ...bookingData, scheduled_time: date });
+              onChange={(event, selectedDate) => {
+                if (Platform.OS === 'android') {
+                  setShowDatePicker(false);
+                }
+                
+                if (event.type === 'set' && selectedDate) {
+                  // Preserve the time from current scheduled_time
+                  const currentTime = bookingData.scheduled_time;
+                  const newDate = new Date(selectedDate);
+                  newDate.setHours(currentTime.getHours());
+                  newDate.setMinutes(currentTime.getMinutes());
+                  newDate.setSeconds(0);
+                  newDate.setMilliseconds(0);
+                  
+                  setBookingData({ ...bookingData, scheduled_time: newDate });
+                } else if (event.type === 'dismissed') {
+                  setShowDatePicker(false);
                 }
               }}
             />
@@ -198,10 +212,24 @@ export default function DoctorDetailScreen() {
             <DateTimePicker
               value={bookingData.scheduled_time}
               mode="time"
-              onChange={(event, date) => {
-                setShowTimePicker(Platform.OS === 'ios');
-                if (date) {
-                  setBookingData({ ...bookingData, scheduled_time: date });
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, selectedTime) => {
+                if (Platform.OS === 'android') {
+                  setShowTimePicker(false);
+                }
+                
+                if (event.type === 'set' && selectedTime) {
+                  // Preserve the date from current scheduled_time, update only time
+                  const currentDate = bookingData.scheduled_time;
+                  const newDateTime = new Date(currentDate);
+                  newDateTime.setHours(selectedTime.getHours());
+                  newDateTime.setMinutes(selectedTime.getMinutes());
+                  newDateTime.setSeconds(0);
+                  newDateTime.setMilliseconds(0);
+                  
+                  setBookingData({ ...bookingData, scheduled_time: newDateTime });
+                } else if (event.type === 'dismissed') {
+                  setShowTimePicker(false);
                 }
               }}
             />
