@@ -104,7 +104,7 @@ function PromotionsCarousel() {
           <Ionicons 
             name={promotion.category === 'pharmacy' ? 'flask' : promotion.category === 'ambulance' ? 'car' : 'medkit'} 
             size={16} 
-            color=\"#FFFFFF\" 
+            color="#FFFFFF" 
           />
           <Text style={styles.promotionBadgeText}>
             {promotion.category.toUpperCase()}
@@ -129,14 +129,14 @@ function PromotionsCarousel() {
         
         <View style={styles.promotionFooter}>
           <View style={styles.providerInfo}>
-            <Ionicons name=\"business\" size={14} color=\"#757575\" />
+            <Ionicons name="business" size={14} color="#757575" />
             <Text style={styles.providerName} numberOfLines={1}>
               {promotion.provider_name}
             </Text>
           </View>
           <View style={styles.shopNowButton}>
             <Text style={styles.shopNowText}>Shop Now</Text>
-            <Ionicons name=\"arrow-forward\" size={16} color=\"#4CAF50\" />
+            <Ionicons name="arrow-forward" size={16} color="#4CAF50" />
           </View>
         </View>
       </View>
