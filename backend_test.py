@@ -456,7 +456,7 @@ def test_ambulance_booking_apis(patient_token, ambulance_user_id):
     
     return booking_id
 
-def test_video_consultation_apis(patient_token, doctor_id):
+def test_video_consultation_apis(patient_token, doctor_user_id):
     """Test video consultation system"""
     print("\n📹 Testing Video Consultation APIs...")
     
@@ -466,10 +466,22 @@ def test_video_consultation_apis(patient_token, doctor_id):
     
     headers = {"Authorization": f"Bearer {patient_token}"}
     
-    # Test SCHEDULE consultation - Will fail due to missing verify_token function
+    # Get the correct doctor ID from the doctors listing
+    doctor_id = None
+    response = make_request("GET", "/doctors")
+    if response and response.status_code == 200:
+        doctors = response.json()
+        if doctors:
+            doctor_id = doctors[0]["id"]  # Use first available doctor
+    
+    if not doctor_id:
+        results.log_fail("Video Consultation APIs", "No doctors available")
+        return None
+    
+    # Test SCHEDULE consultation
     future_datetime = (datetime.utcnow() + timedelta(hours=1)).isoformat()
     consultation_data = {
-        "doctor_id": doctor_id or "mock_doctor_id",
+        "doctor_id": doctor_id,
         "scheduled_datetime": future_datetime,
         "consultation_type": "video",
         "reason": "Follow-up consultation for hypertension",
