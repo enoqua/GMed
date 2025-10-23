@@ -17,7 +17,9 @@ import api from '../../services/api';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { role: queryRole } = useLocalSearchParams();
   const login = useAuthStore((state) => state.login);
+  const [selectedRole, setSelectedRole] = useState((queryRole as string) || 'patient');
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -25,6 +27,26 @@ export default function RegisterScreen() {
     national_id: '',
     password: '',
     confirmPassword: '',
+    // Doctor fields
+    specialty: '',
+    license_number: '',
+    consultation_fee: '',
+    location: '',
+    bio: '',
+    years_of_experience: '',
+    // Hospital fields
+    hospital_name: '',
+    services: '',
+    operating_hours: '',
+    // Pharmacy fields
+    pharmacy_name: '',
+    license_type: '',
+    // Ambulance fields
+    service_areas: '',
+    vehicle_type: '',
+    // Herbalist fields
+    practice_years: '',
+    specializations: '',
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
