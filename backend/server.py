@@ -569,6 +569,289 @@ async def seed_doctors():
     
     return {"message": "Sample doctors created successfully"}
 
+# AI Diagnostics Models
+class DiagnosticMessage(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+
+class DiagnosticResponse(BaseModel):
+    response: str
+    session_id: str
+
+# Forum Models
+class ForumPostCreate(BaseModel):
+    title: str
+    content: str
+    tags: List[str] = []
+
+class ForumPostResponse(BaseModel):
+    id: str
+    author_id: str
+    author_name: str
+    title: str
+    content: str
+    tags: List[str]
+    likes: int
+    replies_count: int
+    created_at: datetime
+
+class ForumReplyCreate(BaseModel):
+    content: str
+
+class ForumReplyResponse(BaseModel):
+    id: str
+    author_id: str
+    author_name: str
+    content: str
+    likes: int
+    created_at: datetime
+
+# AI Diagnostics Routes
+@api_router.post("/diagnostics/chat", response_model=DiagnosticResponse)
+async def ai_diagnostics_chat(
+    message_data: DiagnosticMessage,
+    current_user: dict = Depends(get_current_user)
+):
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    
+    try:
+        session_id = message_data.session_id or str(uuid.uuid4())
+        
+        # Get chat history from database
+        chat_history = await db.diagnostic_chats.find_one({"session_id": session_id})
+        
+        # Initialize LLM Chat
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        system_message = """You are a medical AI assistant for Glenx MedHub. 
+        Your role is to help users understand their symptoms and provide preliminary guidance.
+        
+        IMPORTANT DISCLAIMERS:
+        1. You are NOT a replacement for professional medical diagnosis
+        2. Always recommend consulting a licensed doctor for proper diagnosis
+        3. In emergencies, advise calling emergency services immediately
+        4. Do not prescribe medications
+        
+        Be empathetic, ask relevant follow-up questions, and help users describe their symptoms clearly.
+        At the end of your assessment, suggest booking an appointment with a relevant specialist on the platform."""
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=session_id,
+            system_message=system_message
+        ).with_model("openai", "gpt-4o-mini")
+        
+        # Send message
+        user_message = UserMessage(text=message_data.message)
+        response = await chat.send_message(user_message)
+        
+        # Save conversation to database
+        if not chat_history:
+            await db.diagnostic_chats.insert_one({
+                "session_id": session_id,
+                "user_id": str(current_user["_id"]),
+                "messages": [
+                    {"role": "user", "content": message_data.message, "timestamp": datetime.utcnow()},
+                    {"role": "assistant", "content": response, "timestamp": datetime.utcnow()}
+                ],
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            })
+        else:
+            await db.diagnostic_chats.update_one(
+                {"session_id": session_id},
+                {
+                    "$push": {
+                        "messages": {
+                            "$each": [
+                                {"role": "user", "content": message_data.message, "timestamp": datetime.utcnow()},
+                                {"role": "assistant", "content": response, "timestamp": datetime.utcnow()}
+                            ]
+                        }
+                    },
+                    "$set": {"updated_at": datetime.utcnow()}
+                }
+            )
+        
+        return DiagnosticResponse(response=response, session_id=session_id)
+    
+    except Exception as e:
+        logger.error(f"AI Diagnostics error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+
+@api_router.get("/diagnostics/history")
+async def get_diagnostic_history(current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    sessions = await db.diagnostic_chats.find({"user_id": user_id}).sort("updated_at", -1).to_list(100)
+    
+    result = []
+    for session in sessions:
+        result.append({
+            "session_id": session["session_id"],
+            "created_at": session["created_at"],
+            "updated_at": session["updated_at"],
+            "message_count": len(session.get("messages", []))
+        })
+    
+    return result
+
+# Forum Routes
+@api_router.post("/forum/posts", response_model=ForumPostResponse)
+async def create_forum_post(
+    post_data: ForumPostCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    post_doc = {
+        "author_id": str(current_user["_id"]),
+        "title": post_data.title,
+        "content": post_data.content,
+        "tags": post_data.tags,
+        "likes": 0,
+        "replies_count": 0,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await db.forum_posts.insert_one(post_doc)
+    
+    return ForumPostResponse(
+        id=str(result.inserted_id),
+        author_id=str(current_user["_id"]),
+        author_name=current_user["full_name"],
+        title=post_data.title,
+        content=post_data.content,
+        tags=post_data.tags,
+        likes=0,
+        replies_count=0,
+        created_at=datetime.utcnow()
+    )
+
+@api_router.get("/forum/posts", response_model=List[ForumPostResponse])
+async def get_forum_posts(
+    tag: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 50
+):
+    query = {}
+    
+    if tag:
+        query["tags"] = tag
+    
+    if search:
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"content": {"$regex": search, "$options": "i"}}
+        ]
+    
+    posts = await db.forum_posts.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    result = []
+    for post in posts:
+        author = await db.users.find_one({"_id": ObjectId(post["author_id"])})
+        result.append(ForumPostResponse(
+            id=str(post["_id"]),
+            author_id=post["author_id"],
+            author_name=author["full_name"] if author else "Unknown",
+            title=post["title"],
+            content=post["content"],
+            tags=post["tags"],
+            likes=post.get("likes", 0),
+            replies_count=post.get("replies_count", 0),
+            created_at=post["created_at"]
+        ))
+    
+    return result
+
+@api_router.get("/forum/posts/{post_id}")
+async def get_forum_post(post_id: str):
+    try:
+        post = await db.forum_posts.find_one({"_id": ObjectId(post_id)})
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        
+        author = await db.users.find_one({"_id": ObjectId(post["author_id"])})
+        
+        # Get replies
+        replies = await db.forum_replies.find({"post_id": post_id}).sort("created_at", 1).to_list(100)
+        
+        replies_data = []
+        for reply in replies:
+            reply_author = await db.users.find_one({"_id": ObjectId(reply["author_id"])})
+            replies_data.append({
+                "id": str(reply["_id"]),
+                "author_id": reply["author_id"],
+                "author_name": reply_author["full_name"] if reply_author else "Unknown",
+                "content": reply["content"],
+                "likes": reply.get("likes", 0),
+                "created_at": reply["created_at"]
+            })
+        
+        return {
+            "id": str(post["_id"]),
+            "author_id": post["author_id"],
+            "author_name": author["full_name"] if author else "Unknown",
+            "title": post["title"],
+            "content": post["content"],
+            "tags": post["tags"],
+            "likes": post.get("likes", 0),
+            "replies_count": post.get("replies_count", 0),
+            "created_at": post["created_at"],
+            "replies": replies_data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/forum/posts/{post_id}/replies", response_model=ForumReplyResponse)
+async def create_forum_reply(
+    post_id: str,
+    reply_data: ForumReplyCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        # Verify post exists
+        post = await db.forum_posts.find_one({"_id": ObjectId(post_id)})
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        
+        reply_doc = {
+            "post_id": post_id,
+            "author_id": str(current_user["_id"]),
+            "content": reply_data.content,
+            "likes": 0,
+            "created_at": datetime.utcnow()
+        }
+        
+        result = await db.forum_replies.insert_one(reply_doc)
+        
+        # Update reply count
+        await db.forum_posts.update_one(
+            {"_id": ObjectId(post_id)},
+            {"$inc": {"replies_count": 1}}
+        )
+        
+        return ForumReplyResponse(
+            id=str(result.inserted_id),
+            author_id=str(current_user["_id"]),
+            author_name=current_user["full_name"],
+            content=reply_data.content,
+            likes=0,
+            created_at=datetime.utcnow()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/forum/posts/{post_id}/like")
+async def like_forum_post(post_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await db.forum_posts.update_one(
+            {"_id": ObjectId(post_id)},
+            {"$inc": {"likes": 1}}
+        )
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Post not found")
+        return {"message": "Post liked successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 app.include_router(api_router)
 
 app.add_middleware(
