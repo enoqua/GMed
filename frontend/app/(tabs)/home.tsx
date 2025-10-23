@@ -89,11 +89,11 @@ export default function HomeScreen() {
               <Text style={styles.greeting}>Welcome,</Text>
               <Text style={styles.userName}>{user?.full_name || 'Guest'}</Text>
             </View>
-            <Ionicons name=\"notifications-outline\" size={28} color=\"#1A237E\" />
+            <Ionicons name="notifications-outline" size={28} color="#1A237E" />
           </View>
 
           <View style={styles.heroCard}>
-            <Ionicons name=\"car\" size={48} color=\"#F44336\" />
+            <Ionicons name="car" size={48} color="#F44336" />
             <Text style={styles.heroTitle}>Ambulance Service</Text>
             <Text style={styles.heroSubtitle}>
               Emergency medical transport and rescue operations
@@ -102,12 +102,12 @@ export default function HomeScreen() {
 
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, { backgroundColor: '#FFEBEE' }]}>
-              <Ionicons name=\"car\" size={32} color=\"#F44336\" />
+              <Ionicons name="car" size={32} color="#F44336" />
               <Text style={styles.statValue}>Available</Text>
               <Text style={styles.statLabel}>Status</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
-              <Ionicons name=\"navigate\" size={32} color=\"#2196F3\" />
+              <Ionicons name="navigate" size={32} color="#2196F3" />
               <Text style={styles.statValue}>0</Text>
               <Text style={styles.statLabel}>Active Trips</Text>
             </View>
@@ -115,7 +115,7 @@ export default function HomeScreen() {
 
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <TouchableOpacity style={styles.actionCard}>
-            <Ionicons name=\"toggle\" size={32} color=\"#F44336\" />
+            <Ionicons name="toggle" size={32} color="#F44336" />
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>Update Availability</Text>
               <Text style={styles.actionSubtitle}>Set your service status</Text>
