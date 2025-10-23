@@ -227,8 +227,15 @@ def test_shopping_cart_apis(patient_token, product_ids):
     
     headers = {"Authorization": f"Bearer {patient_token}"}
     
-    # Test ADD to cart - Will fail due to missing verify_token function
-    cart_item = {"product_id": "mock_product_id", "quantity": 2}
+    # Use real product ID if available, otherwise skip cart tests
+    if not product_ids:
+        results.log_fail("Shopping Cart APIs", "No product IDs available for testing")
+        return
+    
+    test_product_id = product_ids[0]
+    
+    # Test ADD to cart
+    cart_item = {"product_id": test_product_id, "quantity": 2}
     response = make_request("POST", "/cart/add", headers=headers, json_data=cart_item)
     if response and response.status_code == 200:
         results.log_pass("Add product to cart")
@@ -246,7 +253,7 @@ def test_shopping_cart_apis(patient_token, product_ids):
         results.log_fail("View cart", error_msg)
     
     # Test UPDATE cart quantity
-    response = make_request("PUT", "/cart/item/mock_product_id", headers=headers, params={"quantity": 3})
+    response = make_request("PUT", f"/cart/item/{test_product_id}", headers=headers, params={"quantity": 3})
     if response and response.status_code == 200:
         results.log_pass("Update cart item quantity")
     else:
@@ -254,7 +261,7 @@ def test_shopping_cart_apis(patient_token, product_ids):
         results.log_fail("Update cart item quantity", error_msg)
     
     # Test REMOVE from cart
-    response = make_request("DELETE", "/cart/item/mock_product_id", headers=headers)
+    response = make_request("DELETE", f"/cart/item/{test_product_id}", headers=headers)
     if response and response.status_code == 200:
         results.log_pass("Remove item from cart")
     else:
