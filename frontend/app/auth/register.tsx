@@ -55,7 +55,7 @@ export default function RegisterScreen() {
     const { full_name, email, phone, national_id, password, confirmPassword } = formData;
 
     if (!full_name || !email || !phone || !national_id || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
@@ -69,16 +69,52 @@ export default function RegisterScreen() {
       return;
     }
 
+    // Build registration payload based on role
+    const payload: any = {
+      full_name,
+      email: email.toLowerCase().trim(),
+      phone,
+      national_id,
+      password,
+      role: selectedRole,
+    };
+
+    // Add role-specific fields
+    if (selectedRole === 'doctor') {
+      if (!formData.specialty || !formData.consultation_fee) {
+        Alert.alert('Error', 'Please fill in specialty and consultation fee');
+        return;
+      }
+      payload.specialty = formData.specialty;
+      payload.license_number = formData.license_number || 'PENDING';
+      payload.consultation_fee = parseFloat(formData.consultation_fee);
+      payload.location = formData.location || 'Not specified';
+      payload.bio = formData.bio || 'Healthcare professional';
+      payload.years_of_experience = parseInt(formData.years_of_experience) || 0;
+    } else if (selectedRole === 'hospital') {
+      payload.hospital_name = formData.hospital_name || full_name;
+      payload.services = formData.services ? formData.services.split(',').map(s => s.trim()) : [];
+      payload.operating_hours = formData.operating_hours || '24/7';
+      payload.location = formData.location || 'Not specified';
+    } else if (selectedRole === 'pharmacy') {
+      payload.pharmacy_name = formData.pharmacy_name || full_name;
+      payload.license_number = formData.license_number || 'PENDING';
+      payload.license_type = formData.license_type || 'retail';
+      payload.location = formData.location || 'Not specified';
+    } else if (selectedRole === 'ambulance') {
+      payload.service_areas = formData.service_areas ? formData.service_areas.split(',').map(s => s.trim()) : [];
+      payload.vehicle_type = formData.vehicle_type || 'Standard';
+      payload.location = formData.location || 'Not specified';
+    } else if (selectedRole === 'herbalist') {
+      payload.practice_years = parseInt(formData.practice_years) || 0;
+      payload.specializations = formData.specializations ? formData.specializations.split(',').map(s => s.trim()) : [];
+      payload.location = formData.location || 'Not specified';
+      payload.bio = formData.bio || 'Traditional medicine practitioner';
+    }
+
     setLoading(true);
     try {
-      const response = await api.post('/auth/register', {
-        full_name,
-        email: email.toLowerCase().trim(),
-        phone,
-        national_id,
-        password,
-        role: 'patient',
-      });
+      const response = await api.post('/auth/register', payload);
 
       await login(response.data.user, response.data.access_token);
       router.replace('/(tabs)/home');
