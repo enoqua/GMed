@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
   },
-  actionTitle: {
+  actionCardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1A237E',
