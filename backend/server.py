@@ -1526,6 +1526,386 @@ async def get_ambulance_bookings(current_user: dict = Depends(get_current_user))
         "created_at": b["created_at"]
     } for b in bookings]
 
+# Enhanced Medical Records Management
+@api_router.get("/patients/my-medical-records")
+async def get_my_medical_records(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != UserRole.PATIENT:
+        raise HTTPException(status_code=403, detail="Only patients can view their medical records")
+    
+    user_id = str(current_user["_id"])
+    patient = await db.patients.find_one({"user_id": user_id})
+    
+    if not patient:
+        return {"medical_history": [], "allergies": [], "blood_type": None, "access_code": None}
+    
+    return {
+        "medical_history": patient.get("medical_history", []),
+        "allergies": patient.get("allergies", []),
+        "blood_type": patient.get("blood_type"),
+        "emergency_contact": patient.get("emergency_contact"),
+        "access_code": patient.get("access_code")
+    }
+
+class AccessCodeUpdate(BaseModel):
+    new_access_code: str
+
+@api_router.put("/patients/access-code")
+async def update_access_code(
+    update: AccessCodeUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != UserRole.PATIENT:
+        raise HTTPException(status_code=403, detail="Only patients can update access code")
+    
+    user_id = str(current_user["_id"])
+    await db.patients.update_one(
+        {"user_id": user_id},
+        {"$set": {"access_code": update.new_access_code}}
+    )
+    
+    return {"message": "Access code updated successfully"}
+
+# Payment System
+class PaymentMethod(BaseModel):
+    method_type: str  # mtn_momo, vodafone_cash, airteltigo
+    phone_number: str
+    account_name: str
+
+class PaymentInitialize(BaseModel):
+    amount: float
+    payment_method: str
+    phone_number: str
+    purpose: str
+    reference_id: str  # appointment_id or order_id
+
+@api_router.post("/payments/initialize")
+async def initialize_payment(
+    payment: PaymentInitialize,
+    current_user: dict = Depends(get_current_user)
+):
+    # Mock payment initialization
+    payment_doc = {
+        "user_id": str(current_user["_id"]),
+        "amount": payment.amount,
+        "payment_method": payment.payment_method,
+        "phone_number": payment.phone_number,
+        "purpose": payment.purpose,
+        "reference_id": payment.reference_id,
+        "status": "pending",
+        "transaction_id": f"TXN{uuid.uuid4().hex[:12].upper()}",
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.payments.insert_one(payment_doc)
+    
+    return {
+        "message": "Payment initialized",
+        "transaction_id": payment_doc["transaction_id"],
+        "payment_id": str(result.inserted_id),
+        "status": "pending"
+    }
+
+class PaymentVerify(BaseModel):
+    transaction_id: str
+
+@api_router.post("/payments/verify")
+async def verify_payment(verify: PaymentVerify, current_user: dict = Depends(get_current_user)):
+    payment = await db.payments.find_one({"transaction_id": verify.transaction_id})
+    
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    # Mock verification - in production, call actual payment gateway
+    await db.payments.update_one(
+        {"transaction_id": verify.transaction_id},
+        {"$set": {"status": "completed", "verified_at": datetime.utcnow()}}
+    )
+    
+    return {
+        "message": "Payment verified successfully",
+        "status": "completed",
+        "transaction_id": verify.transaction_id
+    }
+
+@api_router.get("/payments/history")
+async def get_payment_history(current_user: dict = Depends(get_current_user)):
+    payments = await db.payments.find({
+        "user_id": str(current_user["_id"])
+    }).sort("created_at", -1).to_list(100)
+    
+    return [{
+        "id": str(p["_id"]),
+        "amount": p["amount"],
+        "payment_method": p["payment_method"],
+        "purpose": p["purpose"],
+        "status": p["status"],
+        "transaction_id": p["transaction_id"],
+        "created_at": p["created_at"]
+    } for p in payments]
+
+@api_router.post("/payments/methods")
+async def add_payment_method(
+    method: PaymentMethod,
+    current_user: dict = Depends(get_current_user)
+):
+    method_doc = {
+        "user_id": str(current_user["_id"]),
+        "method_type": method.method_type,
+        "phone_number": method.phone_number,
+        "account_name": method.account_name,
+        "is_default": False,
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.payment_methods.insert_one(method_doc)
+    
+    return {
+        "message": "Payment method added successfully",
+        "method_id": str(result.inserted_id)
+    }
+
+@api_router.get("/payments/methods")
+async def get_payment_methods(current_user: dict = Depends(get_current_user)):
+    methods = await db.payment_methods.find({
+        "user_id": str(current_user["_id"])
+    }).to_list(100)
+    
+    return [{
+        "id": str(m["_id"]),
+        "method_type": m["method_type"],
+        "phone_number": m["phone_number"],
+        "account_name": m["account_name"],
+        "is_default": m.get("is_default", False)
+    } for m in methods]
+
+# Notifications System
+class NotificationCreate(BaseModel):
+    title: str
+    message: str
+    type: str  # appointment, payment, general
+    user_id: str
+
+@api_router.post("/notifications/send")
+async def send_notification(notification: NotificationCreate):
+    notification_doc = {
+        "user_id": notification.user_id,
+        "title": notification.title,
+        "message": notification.message,
+        "type": notification.type,
+        "read": False,
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.notifications.insert_one(notification_doc)
+    
+    return {
+        "message": "Notification sent",
+        "notification_id": str(result.inserted_id)
+    }
+
+@api_router.get("/notifications")
+async def get_notifications(current_user: dict = Depends(get_current_user)):
+    notifications = await db.notifications.find({
+        "user_id": str(current_user["_id"])
+    }).sort("created_at", -1).limit(50).to_list(50)
+    
+    unread_count = await db.notifications.count_documents({
+        "user_id": str(current_user["_id"]),
+        "read": False
+    })
+    
+    return {
+        "notifications": [{
+            "id": str(n["_id"]),
+            "title": n["title"],
+            "message": n["message"],
+            "type": n["type"],
+            "read": n["read"],
+            "created_at": n["created_at"]
+        } for n in notifications],
+        "unread_count": unread_count
+    }
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.notifications.update_one(
+        {"_id": ObjectId(notification_id), "user_id": str(current_user["_id"])},
+        {"$set": {"read": True}}
+    )
+    
+    return {"message": "Notification marked as read"}
+
+@api_router.delete("/notifications/{notification_id}")
+async def delete_notification(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.notifications.delete_one(
+        {"_id": ObjectId(notification_id), "user_id": str(current_user["_id"])}
+    )
+    
+    return {"message": "Notification deleted"}
+
+# Help & Support System
+class SupportTicketCreate(BaseModel):
+    subject: str
+    message: str
+    category: str  # technical, billing, medical, general
+
+class SupportReply(BaseModel):
+    message: str
+
+@api_router.post("/support/tickets")
+async def create_support_ticket(
+    ticket: SupportTicketCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    ticket_doc = {
+        "user_id": str(current_user["_id"]),
+        "user_name": current_user["full_name"],
+        "subject": ticket.subject,
+        "category": ticket.category,
+        "status": "open",
+        "priority": "normal",
+        "messages": [{
+            "sender": "user",
+            "message": ticket.message,
+            "timestamp": datetime.utcnow()
+        }],
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await db.support_tickets.insert_one(ticket_doc)
+    
+    return {
+        "message": "Support ticket created successfully",
+        "ticket_id": str(result.inserted_id),
+        "ticket_number": f"TICKET-{str(result.inserted_id)[-6:].upper()}"
+    }
+
+@api_router.get("/support/tickets")
+async def get_support_tickets(current_user: dict = Depends(get_current_user)):
+    tickets = await db.support_tickets.find({
+        "user_id": str(current_user["_id"])
+    }).sort("updated_at", -1).to_list(100)
+    
+    return [{
+        "id": str(t["_id"]),
+        "ticket_number": f"TICKET-{str(t['_id'])[-6:].upper()}",
+        "subject": t["subject"],
+        "category": t["category"],
+        "status": t["status"],
+        "priority": t.get("priority", "normal"),
+        "created_at": t["created_at"],
+        "updated_at": t["updated_at"],
+        "message_count": len(t.get("messages", []))
+    } for t in tickets]
+
+@api_router.get("/support/tickets/{ticket_id}")
+async def get_support_ticket(ticket_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        ticket = await db.support_tickets.find_one({"_id": ObjectId(ticket_id)})
+        
+        if not ticket:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+        
+        if ticket["user_id"] != str(current_user["_id"]):
+            raise HTTPException(status_code=403, detail="Not authorized")
+        
+        return {
+            "id": str(ticket["_id"]),
+            "ticket_number": f"TICKET-{str(ticket['_id'])[-6:].upper()}",
+            "subject": ticket["subject"],
+            "category": ticket["category"],
+            "status": ticket["status"],
+            "priority": ticket.get("priority", "normal"),
+            "messages": ticket.get("messages", []),
+            "created_at": ticket["created_at"],
+            "updated_at": ticket["updated_at"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/support/tickets/{ticket_id}/reply")
+async def reply_to_ticket(
+    ticket_id: str,
+    reply: SupportReply,
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        ticket = await db.support_tickets.find_one({"_id": ObjectId(ticket_id)})
+        
+        if not ticket:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+        
+        if ticket["user_id"] != str(current_user["_id"]):
+            raise HTTPException(status_code=403, detail="Not authorized")
+        
+        message_doc = {
+            "sender": "user",
+            "message": reply.message,
+            "timestamp": datetime.utcnow()
+        }
+        
+        await db.support_tickets.update_one(
+            {"_id": ObjectId(ticket_id)},
+            {
+                "$push": {"messages": message_doc},
+                "$set": {"updated_at": datetime.utcnow()}
+            }
+        )
+        
+        return {"message": "Reply added successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/support/faq")
+async def get_faqs():
+    faqs = [
+        {
+            "id": "1",
+            "category": "General",
+            "question": "How do I book an appointment?",
+            "answer": "Go to the Doctors tab, search for a doctor, select them, and click 'Book Appointment'. Choose your preferred date, time, and consultation type."
+        },
+        {
+            "id": "2",
+            "category": "Payments",
+            "question": "What payment methods are accepted?",
+            "answer": "We accept MTN Mobile Money, Vodafone Cash, and AirtelTigo Money for all payments including consultations and pharmacy orders."
+        },
+        {
+            "id": "3",
+            "category": "Medical Records",
+            "question": "How do I access my medical records?",
+            "answer": "Go to Profile > Medical Records. You'll need your access code to view sensitive information. You can share this code with healthcare providers."
+        },
+        {
+            "id": "4",
+            "category": "Consultations",
+            "question": "How does video consultation work?",
+            "answer": "After booking and payment, you'll receive a notification at your appointment time with a link to join the video call with your doctor."
+        },
+        {
+            "id": "5",
+            "category": "AI Diagnostics",
+            "question": "Is AI diagnosis accurate?",
+            "answer": "The AI symptom checker provides preliminary guidance only. It's not a replacement for professional medical diagnosis. Always consult with a licensed doctor."
+        },
+        {
+            "id": "6",
+            "category": "Pharmacy",
+            "question": "How long does medicine delivery take?",
+            "answer": "Delivery times vary by pharmacy and location, typically 1-3 business days. Check with your chosen pharmacy for exact delivery times."
+        }
+    ]
+    
+    return {"faqs": faqs}
+
 app.include_router(api_router)
 
 app.add_middleware(
