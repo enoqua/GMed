@@ -3324,6 +3324,246 @@ async def create_default_admin():
         "admin_id": str(result.inserted_id)
     }
 
+# ====================================
+# PROMOTIONAL DEALS & ADVERTISEMENTS
+# ====================================
+
+class PromotionCreate(BaseModel):
+    title: str
+    description: str
+    discount_percentage: Optional[float] = None
+    discount_amount: Optional[float] = None
+    promotional_text: str
+    image_base64: Optional[str] = None
+    terms_conditions: Optional[str] = None
+    start_date: str  # ISO format
+    end_date: str  # ISO format
+    category: str  # "pharmacy", "hospital", "ambulance", "consultation", "general"
+    is_featured: bool = False
+
+class PromotionUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    discount_percentage: Optional[float] = None
+    discount_amount: Optional[float] = None
+    promotional_text: Optional[str] = None
+    image_base64: Optional[str] = None
+    terms_conditions: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_featured: Optional[bool] = None
+
+# Create Promotion (Service Providers Only)
+@api_router.post("/promotions")
+async def create_promotion(
+    promotion: PromotionCreate,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    # Only service providers can create promotions
+    allowed_roles = [UserRole.PHARMACY, UserRole.HOSPITAL, UserRole.AMBULANCE, UserRole.HERBALIST, UserRole.DOCTOR]
+    if user["role"] not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Only service providers can create promotions")
+    
+    promotion_doc = {
+        "provider_id": user_id,
+        "provider_name": user["full_name"],
+        "provider_role": user["role"],
+        "title": promotion.title,
+        "description": promotion.description,
+        "discount_percentage": promotion.discount_percentage,
+        "discount_amount": promotion.discount_amount,
+        "promotional_text": promotion.promotional_text,
+        "image_base64": promotion.image_base64,
+        "terms_conditions": promotion.terms_conditions,
+        "start_date": promotion.start_date,
+        "end_date": promotion.end_date,
+        "category": promotion.category,
+        "is_active": True,
+        "is_featured": promotion.is_featured,
+        "views_count": 0,
+        "clicks_count": 0,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await db.promotions.insert_one(promotion_doc)
+    
+    return {
+        "message": "Promotion created successfully",
+        "promotion_id": str(result.inserted_id)
+    }
+
+# Get Active Promotions (Public - for Patient Dashboard)
+@api_router.get("/promotions/active")
+async def get_active_promotions(
+    category: Optional[str] = None,
+    featured_only: bool = False
+):
+    now = datetime.utcnow()
+    
+    query = {
+        "is_active": True,
+        "start_date": {"$lte": now.isoformat()},
+        "end_date": {"$gte": now.isoformat()}
+    }
+    
+    if category:
+        query["category"] = category
+    
+    if featured_only:
+        query["is_featured"] = True
+    
+    promotions = await db.promotions.find(query).sort("created_at", -1).to_list(50)
+    
+    result = []
+    for promo in promotions:
+        result.append({
+            "id": str(promo["_id"]),
+            "provider_id": promo["provider_id"],
+            "provider_name": promo["provider_name"],
+            "provider_role": promo["provider_role"],
+            "title": promo["title"],
+            "description": promo["description"],
+            "discount_percentage": promo.get("discount_percentage"),
+            "discount_amount": promo.get("discount_amount"),
+            "promotional_text": promo["promotional_text"],
+            "image_base64": promo.get("image_base64"),
+            "category": promo["category"],
+            "is_featured": promo.get("is_featured", False),
+            "views_count": promo.get("views_count", 0),
+            "start_date": promo["start_date"],
+            "end_date": promo["end_date"]
+        })
+    
+    return result
+
+# Get My Promotions (Service Provider)
+@api_router.get("/promotions/my-promotions")
+async def get_my_promotions(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    promotions = await db.promotions.find({"provider_id": user_id}).sort("created_at", -1).to_list(100)
+    
+    result = []
+    for promo in promotions:
+        result.append({
+            "id": str(promo["_id"]),
+            "title": promo["title"],
+            "description": promo["description"],
+            "discount_percentage": promo.get("discount_percentage"),
+            "discount_amount": promo.get("discount_amount"),
+            "promotional_text": promo["promotional_text"],
+            "category": promo["category"],
+            "is_active": promo["is_active"],
+            "is_featured": promo.get("is_featured", False),
+            "views_count": promo.get("views_count", 0),
+            "clicks_count": promo.get("clicks_count", 0),
+            "start_date": promo["start_date"],
+            "end_date": promo["end_date"],
+            "created_at": promo["created_at"].isoformat()
+        })
+    
+    return result
+
+# Get Promotion Details
+@api_router.get("/promotions/{promotion_id}")
+async def get_promotion_details(promotion_id: str):
+    try:
+        promo = await db.promotions.find_one({"_id": ObjectId(promotion_id)})
+        if not promo:
+            raise HTTPException(status_code=404, detail="Promotion not found")
+        
+        # Increment views count
+        await db.promotions.update_one(
+            {"_id": ObjectId(promotion_id)},
+            {"$inc": {"views_count": 1}}
+        )
+        
+        return {
+            "id": str(promo["_id"]),
+            "provider_id": promo["provider_id"],
+            "provider_name": promo["provider_name"],
+            "provider_role": promo["provider_role"],
+            "title": promo["title"],
+            "description": promo["description"],
+            "discount_percentage": promo.get("discount_percentage"),
+            "discount_amount": promo.get("discount_amount"),
+            "promotional_text": promo["promotional_text"],
+            "image_base64": promo.get("image_base64"),
+            "terms_conditions": promo.get("terms_conditions"),
+            "category": promo["category"],
+            "is_featured": promo.get("is_featured", False),
+            "views_count": promo.get("views_count", 0),
+            "clicks_count": promo.get("clicks_count", 0),
+            "start_date": promo["start_date"],
+            "end_date": promo["end_date"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Update Promotion
+@api_router.put("/promotions/{promotion_id}")
+async def update_promotion(
+    promotion_id: str,
+    promotion_update: PromotionUpdate,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    promo = await db.promotions.find_one({"_id": ObjectId(promotion_id)})
+    if not promo:
+        raise HTTPException(status_code=404, detail="Promotion not found")
+    
+    if promo["provider_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    update_data = {k: v for k, v in promotion_update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.promotions.update_one(
+        {"_id": ObjectId(promotion_id)},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Promotion updated successfully"}
+
+# Delete Promotion
+@api_router.delete("/promotions/{promotion_id}")
+async def delete_promotion(
+    promotion_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    
+    promo = await db.promotions.find_one({"_id": ObjectId(promotion_id)})
+    if not promo:
+        raise HTTPException(status_code=404, detail="Promotion not found")
+    
+    if promo["provider_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    await db.promotions.delete_one({"_id": ObjectId(promotion_id)})
+    
+    return {"message": "Promotion deleted successfully"}
+
+# Track Promotion Click
+@api_router.post("/promotions/{promotion_id}/click")
+async def track_promotion_click(promotion_id: str):
+    try:
+        await db.promotions.update_one(
+            {"_id": ObjectId(promotion_id)},
+            {"$inc": {"clicks_count": 1}}
+        )
+        return {"message": "Click tracked"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 app.include_router(api_router)
 
 app.add_middleware(
