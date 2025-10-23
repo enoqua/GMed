@@ -39,6 +39,7 @@ export default function DoctorDetailScreen() {
     scheduled_time: new Date(),
     reason: '',
   });
+  const [tempDate, setTempDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
