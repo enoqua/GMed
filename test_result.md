@@ -240,6 +240,66 @@ backend:
         agent: "testing"
         comment: "✅ PASSED - Ambulance listing API fully functional. GET /api/ambulances/all returns array of 4+ ambulances with complete response structure (id, service_name, location, vehicle_type, service_areas, availability_status, phone, email). Location filtering works correctly (?location=Accra returns 2 ambulances, ?location=Kumasi returns 1 ambulance). Empty results handled properly (?location=NonExistentCity returns empty array). Endpoint works without authentication as expected for public listing. Created test ambulance users with realistic Ghana data (Accra Emergency Services, Kumasi Rescue Services, Cape Coast Medical Transport) with proper service areas and vehicle types."
 
+  - task: "Pharmacy Product Management APIs"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented complete CRUD APIs for pharmacy product management: POST /api/products (create), GET /api/products (list with filters), GET /api/products/{id} (details), PUT /api/products/{id} (update), DELETE /api/products/{id} (delete). Supports product categories, prescription requirements, stock management, and image uploads (base64)."
+
+  - task: "Shopping Cart APIs"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented shopping cart system: POST /api/cart/add (add to cart), GET /api/cart (view cart), DELETE /api/cart/item/{product_id} (remove item), PUT /api/cart/item/{product_id} (update quantity). Cart persists per user with stock validation."
+
+  - task: "Order Management APIs"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented order placement and tracking: POST /api/orders (create order with mock payment), GET /api/orders/my-orders (order history), GET /api/orders/{id} (order details). Supports delivery address, prescription uploads, mock payment gateways (MTN, Vodafone, AirtelTigo), and automatic stock reduction."
+
+  - task: "Ambulance Booking APIs"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented ambulance booking system: POST /api/ambulance/book (book immediate or scheduled), GET /api/ambulance/bookings (booking history), GET /api/ambulance/bookings/{id} (booking details), GET /api/ambulance/track/{id} (mock live tracking). Supports pickup/destination, emergency type, patient condition, distance-based pricing, driver contact info."
+
+  - task: "Video Consultation APIs"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented video consultation system: POST /api/consultations/schedule (schedule consultation), GET /api/consultations/my-consultations (consultation history), GET /api/consultations/{id} (details), POST /api/consultations/{id}/join (join with mock Agora token), POST /api/consultations/{id}/end (end consultation). Generates unique room IDs and mock Agora tokens for video calls."
+
 frontend:
   - task: "Authentication Flow (Login & Register)"
     implemented: true
