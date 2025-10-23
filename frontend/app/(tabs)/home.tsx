@@ -71,7 +71,7 @@ export default function HomeScreen() {
           <TouchableOpacity style={styles.actionCard}>
             <Ionicons name="add-circle" size={32} color="#9C27B0" />
             <View style={styles.actionText}>
-              <Text style={styles.actionTitle}>Add Department</Text>
+              <Text style={styles.actionCardTitle}>Add Department</Text>
               <Text style={styles.actionSubtitle}>Create new hospital department</Text>
             </View>
           </TouchableOpacity>
