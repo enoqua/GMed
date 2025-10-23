@@ -104,10 +104,12 @@ export default function PharmacyProductsScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={styles.gridContent}
           showsVerticalScrollIndicator={false}
         >
-          {products.map(renderProduct)}
+          <View style={styles.gridContainer}>
+            {products.map(renderProduct)}
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
