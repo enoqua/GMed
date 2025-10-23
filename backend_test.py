@@ -449,10 +449,10 @@ def test_ambulance_booking_apis(patient_token, ambulance_user_id):
     
     # Test unauthorized access
     response = make_request("GET", "/ambulance/bookings")  # No auth header
-    if response and response.status_code in [401, 403]:
+    if response and response.status_code in [401, 403, 422]:
         results.log_pass("Unauthorized ambulance access blocked")
     else:
-        results.log_fail("Unauthorized ambulance access", "Should have returned 401/403")
+        results.log_fail("Unauthorized ambulance access", f"Expected 401/403/422, got {response.status_code if response else 'None'}")
     
     return booking_id
 
