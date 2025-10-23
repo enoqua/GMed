@@ -10,43 +10,34 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import api from '../../services/api';
+
+const roleInfo = {
+  patient: { title: 'Patient', icon: 'person', color: '#4CAF50' },
+  doctor: { title: 'Doctor', icon: 'medical', color: '#2196F3' },
+  hospital: { title: 'Hospital', icon: 'business', color: '#9C27B0' },
+  pharmacy: { title: 'Pharmacy', icon: 'flask', color: '#FF9800' },
+  ambulance: { title: 'Ambulance', icon: 'car', color: '#F44336' },
+  herbalist: { title: 'Herbalist', icon: 'leaf', color: '#4CAF50' },
+};
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { role: queryRole } = useLocalSearchParams();
   const login = useAuthStore((state) => state.login);
-  const [selectedRole, setSelectedRole] = useState((queryRole as string) || 'patient');
-  const [formData, setFormData] = useState({
+  const selectedRole = (queryRole as string) || 'patient';
+  const roleData = roleInfo[selectedRole as keyof typeof roleInfo] || roleInfo.patient;
+  
+  const [formData, setFormData] = useState<any>({
     full_name: '',
     email: '',
     phone: '',
     national_id: '',
     password: '',
     confirmPassword: '',
-    // Doctor fields
-    specialty: '',
-    license_number: '',
-    consultation_fee: '',
-    location: '',
-    bio: '',
-    years_of_experience: '',
-    // Hospital fields
-    hospital_name: '',
-    services: '',
-    operating_hours: '',
-    // Pharmacy fields
-    pharmacy_name: '',
-    license_type: '',
-    // Ambulance fields
-    service_areas: '',
-    vehicle_type: '',
-    // Herbalist fields
-    practice_years: '',
-    specializations: '',
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -69,7 +60,6 @@ export default function RegisterScreen() {
       return;
     }
 
-    // Build registration payload based on role
     const payload: any = {
       full_name,
       email: email.toLowerCase().trim(),
@@ -93,7 +83,7 @@ export default function RegisterScreen() {
       payload.years_of_experience = parseInt(formData.years_of_experience) || 0;
     } else if (selectedRole === 'hospital') {
       payload.hospital_name = formData.hospital_name || full_name;
-      payload.services = formData.services ? formData.services.split(',').map(s => s.trim()) : [];
+      payload.services = formData.services ? formData.services.split(',').map((s: string) => s.trim()) : [];
       payload.operating_hours = formData.operating_hours || '24/7';
       payload.location = formData.location || 'Not specified';
     } else if (selectedRole === 'pharmacy') {
@@ -102,12 +92,12 @@ export default function RegisterScreen() {
       payload.license_type = formData.license_type || 'retail';
       payload.location = formData.location || 'Not specified';
     } else if (selectedRole === 'ambulance') {
-      payload.service_areas = formData.service_areas ? formData.service_areas.split(',').map(s => s.trim()) : [];
+      payload.service_areas = formData.service_areas ? formData.service_areas.split(',').map((s: string) => s.trim()) : [];
       payload.vehicle_type = formData.vehicle_type || 'Standard';
       payload.location = formData.location || 'Not specified';
     } else if (selectedRole === 'herbalist') {
       payload.practice_years = parseInt(formData.practice_years) || 0;
-      payload.specializations = formData.specializations ? formData.specializations.split(',').map(s => s.trim()) : [];
+      payload.specializations = formData.specializations ? formData.specializations.split(',').map((s: string) => s.trim()) : [];
       payload.location = formData.location || 'Not specified';
       payload.bio = formData.bio || 'Traditional medicine practitioner';
     }
@@ -115,7 +105,6 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       const response = await api.post('/auth/register', payload);
-
       await login(response.data.user, response.data.access_token);
       router.replace('/(tabs)/home');
     } catch (error: any) {
@@ -126,6 +115,251 @@ export default function RegisterScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderRoleFields = () => {
+    if (selectedRole === 'doctor') {
+      return (
+        <>
+          <View style={styles.inputContainer}>
+            <Ionicons name="medical-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Specialty *"
+              value={formData.specialty}
+              onChangeText={(text) => setFormData({ ...formData, specialty: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="card-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="License Number"
+              value={formData.license_number}
+              onChangeText={(text) => setFormData({ ...formData, license_number: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="cash-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Consultation Fee (GHS) *"
+              value={formData.consultation_fee}
+              onChangeText={(text) => setFormData({ ...formData, consultation_fee: text })}
+              keyboardType="numeric"
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="location-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Location/Clinic"
+              value={formData.location}
+              onChangeText={(text) => setFormData({ ...formData, location: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="time-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Years of Experience"
+              value={formData.years_of_experience}
+              onChangeText={(text) => setFormData({ ...formData, years_of_experience: text })}
+              keyboardType="numeric"
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="document-text-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Bio"
+              value={formData.bio}
+              onChangeText={(text) => setFormData({ ...formData, bio: text })}
+              multiline
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+        </>
+      );
+    } else if (selectedRole === 'hospital') {
+      return (
+        <>
+          <View style={styles.inputContainer}>
+            <Ionicons name="business-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Hospital Name"
+              value={formData.hospital_name}
+              onChangeText={(text) => setFormData({ ...formData, hospital_name: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="list-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Services (comma-separated)"
+              value={formData.services}
+              onChangeText={(text) => setFormData({ ...formData, services: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="time-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Operating Hours"
+              value={formData.operating_hours}
+              onChangeText={(text) => setFormData({ ...formData, operating_hours: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="location-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Location"
+              value={formData.location}
+              onChangeText={(text) => setFormData({ ...formData, location: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+        </>
+      );
+    } else if (selectedRole === 'pharmacy') {
+      return (
+        <>
+          <View style={styles.inputContainer}>
+            <Ionicons name="flask-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Pharmacy Name"
+              value={formData.pharmacy_name}
+              onChangeText={(text) => setFormData({ ...formData, pharmacy_name: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="card-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="License Number"
+              value={formData.license_number}
+              onChangeText={(text) => setFormData({ ...formData, license_number: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="pricetag-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="License Type (e.g., retail)"
+              value={formData.license_type}
+              onChangeText={(text) => setFormData({ ...formData, license_type: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="location-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Location"
+              value={formData.location}
+              onChangeText={(text) => setFormData({ ...formData, location: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+        </>
+      );
+    } else if (selectedRole === 'ambulance') {
+      return (
+        <>
+          <View style={styles.inputContainer}>
+            <Ionicons name="map-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Service Areas (comma-separated)"
+              value={formData.service_areas}
+              onChangeText={(text) => setFormData({ ...formData, service_areas: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="car-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Vehicle Type"
+              value={formData.vehicle_type}
+              onChangeText={(text) => setFormData({ ...formData, vehicle_type: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="location-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Base Location"
+              value={formData.location}
+              onChangeText={(text) => setFormData({ ...formData, location: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+        </>
+      );
+    } else if (selectedRole === 'herbalist') {
+      return (
+        <>
+          <View style={styles.inputContainer}>
+            <Ionicons name="time-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Years of Practice"
+              value={formData.practice_years}
+              onChangeText={(text) => setFormData({ ...formData, practice_years: text })}
+              keyboardType="numeric"
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="leaf-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Specializations (comma-separated)"
+              value={formData.specializations}
+              onChangeText={(text) => setFormData({ ...formData, specializations: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="location-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Location"
+              value={formData.location}
+              onChangeText={(text) => setFormData({ ...formData, location: text })}
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="document-text-outline" size={20} color="#546E7A" />
+            <TextInput
+              style={styles.input}
+              placeholder="Bio"
+              value={formData.bio}
+              onChangeText={(text) => setFormData({ ...formData, bio: text })}
+              multiline
+              placeholderTextColor="#90A4AE"
+            />
+          </View>
+        </>
+      );
+    }
+    return null;
   };
 
   return (
@@ -141,9 +375,9 @@ export default function RegisterScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#1A237E" />
           </TouchableOpacity>
-          <Ionicons name="medical" size={64} color="#4CAF50" />
+          <Ionicons name={roleData.icon as any} size={64} color={roleData.color} />
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Register as a Patient</Text>
+          <Text style={styles.subtitle}>Register as {roleData.title}</Text>
         </View>
 
         <View style={styles.form}>
@@ -151,7 +385,7 @@ export default function RegisterScreen() {
             <Ionicons name="person-outline" size={20} color="#546E7A" />
             <TextInput
               style={styles.input}
-              placeholder="Full Name"
+              placeholder="Full Name *"
               value={formData.full_name}
               onChangeText={(text) => setFormData({ ...formData, full_name: text })}
               placeholderTextColor="#90A4AE"
@@ -162,7 +396,7 @@ export default function RegisterScreen() {
             <Ionicons name="mail-outline" size={20} color="#546E7A" />
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder="Email *"
               value={formData.email}
               onChangeText={(text) => setFormData({ ...formData, email: text })}
               keyboardType="email-address"
@@ -175,7 +409,7 @@ export default function RegisterScreen() {
             <Ionicons name="call-outline" size={20} color="#546E7A" />
             <TextInput
               style={styles.input}
-              placeholder="Phone (+233XXXXXXXXX)"
+              placeholder="Phone (+233XXXXXXXXX) *"
               value={formData.phone}
               onChangeText={(text) => setFormData({ ...formData, phone: text })}
               keyboardType="phone-pad"
@@ -187,18 +421,20 @@ export default function RegisterScreen() {
             <Ionicons name="card-outline" size={20} color="#546E7A" />
             <TextInput
               style={styles.input}
-              placeholder="National ID (Ghana)"
+              placeholder="National ID (Ghana) *"
               value={formData.national_id}
               onChangeText={(text) => setFormData({ ...formData, national_id: text })}
               placeholderTextColor="#90A4AE"
             />
           </View>
 
+          {renderRoleFields()}
+
           <View style={styles.inputContainer}>
             <Ionicons name="lock-closed-outline" size={20} color="#546E7A" />
             <TextInput
               style={styles.input}
-              placeholder="Password"
+              placeholder="Password *"
               value={formData.password}
               onChangeText={(text) => setFormData({ ...formData, password: text })}
               secureTextEntry={!showPassword}
@@ -217,7 +453,7 @@ export default function RegisterScreen() {
             <Ionicons name="lock-closed-outline" size={20} color="#546E7A" />
             <TextInput
               style={styles.input}
-              placeholder="Confirm Password"
+              placeholder="Confirm Password *"
               value={formData.confirmPassword}
               onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
               secureTextEntry={!showPassword}
