@@ -227,15 +227,18 @@ backend:
 
   - task: "Ambulance Listing API"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented GET /api/ambulances/all endpoint to list all registered ambulance services with location filter support. Returns service name, location, vehicle type, service areas, availability status, phone, and email."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASSED - Ambulance listing API fully functional. GET /api/ambulances/all returns array of 4+ ambulances with complete response structure (id, service_name, location, vehicle_type, service_areas, availability_status, phone, email). Location filtering works correctly (?location=Accra returns 2 ambulances, ?location=Kumasi returns 1 ambulance). Empty results handled properly (?location=NonExistentCity returns empty array). Endpoint works without authentication as expected for public listing. Created test ambulance users with realistic Ghana data (Accra Emergency Services, Kumasi Rescue Services, Cape Coast Medical Transport) with proper service areas and vehicle types."
 
 frontend:
   - task: "Authentication Flow (Login & Register)"
