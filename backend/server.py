@@ -154,6 +154,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
+def verify_token(token: str):
+    """Verify JWT token and return user_id"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        return user_id
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
 # Auth Routes
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user_data: RegisterRequest):
