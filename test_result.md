@@ -484,6 +484,18 @@ frontend:
         agent: "main"
         comment: "Created ambulance listing screen with search functionality that filters by service name and location. Displays ambulance cards with availability status badges, vehicle type, service areas, phone. Includes emergency banner, call-to-action buttons (Call Emergency, Book), pull-to-refresh and loading states. Navigation from patient dashboard quick actions."
 
+  - task: "Hospital Dashboard Integration"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/home.tsx, /app/frontend/components/dashboards/HospitalDashboard.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Integrated HospitalDashboard component into home.tsx for hospital role users. Dashboard displays hospital name, real-time statistics (departments, staff, active patients, revenue), bed occupancy visualization with progress bar, today's admissions, and quick action cards for departments, bed management, admissions, services, staff, and reports. Dashboard fetches data from GET /api/hospital/dashboard/stats endpoint with pull-to-refresh functionality."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
