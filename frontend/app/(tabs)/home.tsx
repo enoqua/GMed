@@ -207,45 +207,7 @@ export default function HomeScreen() {
   if (user?.role === 'hospital') {
     return (
       <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.greeting}>Welcome,</Text>
-              <Text style={styles.userName}>{user?.full_name || 'Guest'}</Text>
-            </View>
-            <Ionicons name="notifications-outline" size={28} color="#1A237E" />
-          </View>
-
-          <View style={styles.heroCard}>
-            <Ionicons name="business" size={48} color="#9C27B0" />
-            <Text style={styles.heroTitle}>Hospital Management</Text>
-            <Text style={styles.heroSubtitle}>
-              Manage departments, staff, and patient services
-            </Text>
-          </View>
-
-          <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { backgroundColor: '#F3E5F5' }]}>
-              <Ionicons name="business" size={32} color="#9C27B0" />
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Departments</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name="people" size={32} color="#4CAF50" />
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Staff</Text>
-            </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <TouchableOpacity style={styles.actionCard}>
-            <Ionicons name="add-circle" size={32} color="#9C27B0" />
-            <View style={styles.actionText}>
-              <Text style={styles.actionCardTitle}>Add Department</Text>
-              <Text style={styles.actionSubtitle}>Create new hospital department</Text>
-            </View>
-          </TouchableOpacity>
-        </ScrollView>
+        <HospitalDashboard />
       </SafeAreaView>
     );
   }
