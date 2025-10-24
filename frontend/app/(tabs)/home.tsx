@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import DoctorDashboard from '../../components/dashboards/DoctorDashboard';
 import PharmacyDashboard from '../../components/dashboards/PharmacyDashboard';
+import HospitalDashboard from '../../components/dashboards/HospitalDashboard';
 import api from '../../services/api';
 
 const { width } = Dimensions.get('window');
