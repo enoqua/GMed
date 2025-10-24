@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import uuid
 
 # Get backend URL from frontend env
-BACKEND_URL = "https://medhub-ghana.preview.emergentagent.com/api"
+BACKEND_URL = "https://medhub-app-1.preview.emergentagent.com/api"
 
 class TestResults:
     def __init__(self):
