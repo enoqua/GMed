@@ -3564,6 +3564,453 @@ async def track_promotion_click(promotion_id: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# ====================================
+# HOSPITAL MANAGEMENT SYSTEM
+# ====================================
+
+# Pydantic Models for Hospital Management
+class DepartmentCreate(BaseModel):
+    name: str
+    description: str
+    head_doctor: Optional[str] = None
+    contact_phone: str
+    services: List[str]
+
+class BedCreate(BaseModel):
+    room_number: str
+    bed_number: str
+    department: str
+    bed_type: str  # "general", "icu", "private", "vip"
+    price_per_day: float
+
+class PatientAdmission(BaseModel):
+    patient_id: str
+    admission_type: str  # "emergency", "scheduled", "transfer"
+    department: str
+    assigned_doctor: str
+    diagnosis: str
+    symptoms: str
+    bed_id: Optional[str] = None
+    emergency_contact_name: str
+    emergency_contact_phone: str
+
+class PatientDischarge(BaseModel):
+    discharge_summary: str
+    follow_up_instructions: str
+    prescribed_medications: List[dict]
+    next_appointment_date: Optional[str] = None
+
+class HospitalServiceCreate(BaseModel):
+    service_name: str
+    department: str
+    description: str
+    price: float
+    duration_minutes: int
+
+# Hospital Dashboard Statistics
+@api_router.get("/hospital/dashboard/stats")
+async def get_hospital_dashboard_stats(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can access this")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    if not hospital:
+        raise HTTPException(status_code=404, detail="Hospital profile not found")
+    
+    hospital_id = str(hospital["_id"])
+    
+    # Get statistics
+    total_departments = await db.hospital_departments.count_documents({"hospital_id": hospital_id})
+    total_staff = await db.hospital_staff.count_documents({"hospital_id": hospital_id})
+    total_beds = await db.hospital_beds.count_documents({"hospital_id": hospital_id})
+    occupied_beds = await db.hospital_beds.count_documents({"hospital_id": hospital_id, "status": "occupied"})
+    available_beds = total_beds - occupied_beds
+    
+    active_admissions = await db.patient_admissions.count_documents({
+        "hospital_id": hospital_id,
+        "status": "active"
+    })
+    
+    today_admissions = await db.patient_admissions.count_documents({
+        "hospital_id": hospital_id,
+        "created_at": {"$gte": datetime.utcnow().replace(hour=0, minute=0, second=0)}
+    })
+    
+    # Revenue calculation
+    total_revenue = 0
+    async for bill in db.hospital_bills.find({"hospital_id": hospital_id, "payment_status": "paid"}):
+        total_revenue += bill.get("total_amount", 0)
+    
+    return {
+        "hospital_name": hospital.get("hospital_name", user["full_name"]),
+        "departments": total_departments,
+        "staff": total_staff,
+        "beds": {
+            "total": total_beds,
+            "occupied": occupied_beds,
+            "available": available_beds,
+            "occupancy_rate": (occupied_beds / total_beds * 100) if total_beds > 0 else 0
+        },
+        "patients": {
+            "active_admissions": active_admissions,
+            "today_admissions": today_admissions
+        },
+        "revenue": {
+            "total": total_revenue
+        }
+    }
+
+# Department Management
+@api_router.post("/hospital/departments")
+async def create_department(
+    department: DepartmentCreate,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can create departments")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    hospital_id = str(hospital["_id"])
+    
+    dept_doc = {
+        "hospital_id": hospital_id,
+        "name": department.name,
+        "description": department.description,
+        "head_doctor": department.head_doctor,
+        "contact_phone": department.contact_phone,
+        "services": department.services,
+        "status": "active",
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.hospital_departments.insert_one(dept_doc)
+    return {"message": "Department created successfully", "department_id": str(result.inserted_id)}
+
+@api_router.get("/hospital/departments")
+async def get_hospital_departments(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can access this")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    hospital_id = str(hospital["_id"])
+    
+    departments = await db.hospital_departments.find({"hospital_id": hospital_id}).to_list(100)
+    
+    result = []
+    for dept in departments:
+        # Count staff in this department
+        staff_count = await db.hospital_staff.count_documents({
+            "hospital_id": hospital_id,
+            "department": dept["name"]
+        })
+        
+        result.append({
+            "id": str(dept["_id"]),
+            "name": dept["name"],
+            "description": dept["description"],
+            "head_doctor": dept.get("head_doctor"),
+            "contact_phone": dept["contact_phone"],
+            "services": dept["services"],
+            "staff_count": staff_count,
+            "status": dept.get("status", "active")
+        })
+    
+    return result
+
+# Bed Management
+@api_router.post("/hospital/beds")
+async def create_bed(
+    bed: BedCreate,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can create beds")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    hospital_id = str(hospital["_id"])
+    
+    bed_doc = {
+        "hospital_id": hospital_id,
+        "room_number": bed.room_number,
+        "bed_number": bed.bed_number,
+        "department": bed.department,
+        "bed_type": bed.bed_type,
+        "price_per_day": bed.price_per_day,
+        "status": "available",  # available, occupied, maintenance
+        "current_patient_id": None,
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.hospital_beds.insert_one(bed_doc)
+    return {"message": "Bed created successfully", "bed_id": str(result.inserted_id)}
+
+@api_router.get("/hospital/beds")
+async def get_hospital_beds(
+    status: Optional[str] = None,
+    department: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can access this")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    hospital_id = str(hospital["_id"])
+    
+    query = {"hospital_id": hospital_id}
+    if status:
+        query["status"] = status
+    if department:
+        query["department"] = department
+    
+    beds = await db.hospital_beds.find(query).to_list(500)
+    
+    result = []
+    for bed in beds:
+        result.append({
+            "id": str(bed["_id"]),
+            "room_number": bed["room_number"],
+            "bed_number": bed["bed_number"],
+            "department": bed["department"],
+            "bed_type": bed["bed_type"],
+            "price_per_day": bed["price_per_day"],
+            "status": bed["status"],
+            "current_patient_id": bed.get("current_patient_id")
+        })
+    
+    return result
+
+# Patient Admission Management
+@api_router.post("/hospital/admissions")
+async def admit_patient(
+    admission: PatientAdmission,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can admit patients")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    hospital_id = str(hospital["_id"])
+    
+    # Get patient info
+    patient = await db.users.find_one({"_id": ObjectId(admission.patient_id)})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Assign bed if provided
+    if admission.bed_id:
+        bed = await db.hospital_beds.find_one({"_id": ObjectId(admission.bed_id)})
+        if bed["status"] != "available":
+            raise HTTPException(status_code=400, detail="Bed not available")
+        
+        await db.hospital_beds.update_one(
+            {"_id": ObjectId(admission.bed_id)},
+            {"$set": {"status": "occupied", "current_patient_id": admission.patient_id}}
+        )
+    
+    admission_doc = {
+        "hospital_id": hospital_id,
+        "hospital_name": hospital.get("hospital_name", user["full_name"]),
+        "patient_id": admission.patient_id,
+        "patient_name": patient["full_name"],
+        "patient_phone": patient["phone"],
+        "admission_type": admission.admission_type,
+        "department": admission.department,
+        "assigned_doctor": admission.assigned_doctor,
+        "diagnosis": admission.diagnosis,
+        "symptoms": admission.symptoms,
+        "bed_id": admission.bed_id,
+        "emergency_contact_name": admission.emergency_contact_name,
+        "emergency_contact_phone": admission.emergency_contact_phone,
+        "admission_date": datetime.utcnow(),
+        "status": "active",  # active, discharged
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.patient_admissions.insert_one(admission_doc)
+    
+    return {
+        "message": "Patient admitted successfully",
+        "admission_id": str(result.inserted_id),
+        "admission_number": f"ADM-{str(result.inserted_id)[:8].upper()}"
+    }
+
+@api_router.get("/hospital/admissions")
+async def get_admissions(
+    status: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can access this")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    hospital_id = str(hospital["_id"])
+    
+    query = {"hospital_id": hospital_id}
+    if status:
+        query["status"] = status
+    
+    admissions = await db.patient_admissions.find(query).sort("created_at", -1).to_list(200)
+    
+    result = []
+    for adm in admissions:
+        result.append({
+            "id": str(adm["_id"]),
+            "admission_number": f"ADM-{str(adm['_id'])[:8].upper()}",
+            "patient_name": adm["patient_name"],
+            "patient_phone": adm["patient_phone"],
+            "admission_type": adm["admission_type"],
+            "department": adm["department"],
+            "assigned_doctor": adm["assigned_doctor"],
+            "diagnosis": adm["diagnosis"],
+            "admission_date": adm["admission_date"].isoformat(),
+            "status": adm["status"],
+            "bed_id": adm.get("bed_id")
+        })
+    
+    return result
+
+@api_router.post("/hospital/admissions/{admission_id}/discharge")
+async def discharge_patient(
+    admission_id: str,
+    discharge: PatientDischarge,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can discharge patients")
+    
+    admission = await db.patient_admissions.find_one({"_id": ObjectId(admission_id)})
+    if not admission:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    
+    # Free up the bed
+    if admission.get("bed_id"):
+        await db.hospital_beds.update_one(
+            {"_id": ObjectId(admission["bed_id"])},
+            {"$set": {"status": "available", "current_patient_id": None}}
+        )
+    
+    # Update admission status
+    await db.patient_admissions.update_one(
+        {"_id": ObjectId(admission_id)},
+        {"$set": {
+            "status": "discharged",
+            "discharge_date": datetime.utcnow(),
+            "discharge_summary": discharge.discharge_summary,
+            "follow_up_instructions": discharge.follow_up_instructions,
+            "prescribed_medications": discharge.prescribed_medications,
+            "next_appointment_date": discharge.next_appointment_date
+        }}
+    )
+    
+    return {"message": "Patient discharged successfully"}
+
+# Hospital Services Management
+@api_router.post("/hospital/services")
+async def create_service(
+    service: HospitalServiceCreate,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can create services")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    hospital_id = str(hospital["_id"])
+    
+    service_doc = {
+        "hospital_id": hospital_id,
+        "service_name": service.service_name,
+        "department": service.department,
+        "description": service.description,
+        "price": service.price,
+        "duration_minutes": service.duration_minutes,
+        "status": "active",
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.hospital_services.insert_one(service_doc)
+    return {"message": "Service created successfully", "service_id": str(result.inserted_id)}
+
+@api_router.get("/hospital/services")
+async def get_hospital_services(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    user_id = verify_token(credentials.credentials)
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    if user["role"] != UserRole.HOSPITAL:
+        raise HTTPException(status_code=403, detail="Only hospitals can access this")
+    
+    hospital = await db.hospitals.find_one({"user_id": user_id})
+    hospital_id = str(hospital["_id"])
+    
+    services = await db.hospital_services.find({"hospital_id": hospital_id}).to_list(200)
+    
+    result = []
+    for svc in services:
+        result.append({
+            "id": str(svc["_id"]),
+            "service_name": svc["service_name"],
+            "department": svc["department"],
+            "description": svc["description"],
+            "price": svc["price"],
+            "duration_minutes": svc["duration_minutes"],
+            "status": svc.get("status", "active")
+        })
+    
+    return result
+
+# Public: Get Hospital Services (for patients)
+@api_router.get("/hospitals/{hospital_id}/services")
+async def get_public_hospital_services(hospital_id: str):
+    services = await db.hospital_services.find({
+        "hospital_id": hospital_id,
+        "status": "active"
+    }).to_list(200)
+    
+    result = []
+    for svc in services:
+        result.append({
+            "id": str(svc["_id"]),
+            "service_name": svc["service_name"],
+            "department": svc["department"],
+            "description": svc["description"],
+            "price": svc["price"],
+            "duration_minutes": svc["duration_minutes"]
+        })
+    
+    return result
+
 app.include_router(api_router)
 
 app.add_middleware(
