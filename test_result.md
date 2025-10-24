@@ -315,6 +315,18 @@ backend:
         agent: "testing"
         comment: "✅ PASSED - Video consultation system fully functional. Successfully tested: SCHEDULE consultations with doctors (generates room_id and consultation_fee), GET consultation history, GET consultation details, JOIN consultation (returns mock Agora token and app_id), END consultation with status update to 'completed', proper status transitions (scheduled → in_progress → completed). Mock Agora integration ready for real implementation. All endpoints properly authenticated and authorized."
 
+  - task: "Hospital Management APIs"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented comprehensive hospital management system: GET /api/hospital/dashboard/stats (dashboard statistics with departments, staff, beds, admissions, revenue), POST /api/hospital/departments (create department), GET /api/hospital/departments (list departments with staff count), POST /api/hospital/beds (create bed), GET /api/hospital/beds (list beds with status). Supports bed occupancy tracking, patient admissions, and revenue calculation."
+
 frontend:
   - task: "Authentication Flow (Login & Register)"
     implemented: true
