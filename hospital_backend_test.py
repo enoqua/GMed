@@ -431,10 +431,12 @@ class HospitalAPITester:
         """Test that non-hospital users cannot access hospital endpoints"""
         try:
             # Register a patient user
+            import uuid
+            unique_id = str(uuid.uuid4())[:8]
             patient_data = {
-                "email": "patient_test@test.com",
-                "phone": "+233244567891",
-                "national_id": "GHA987654321",
+                "email": f"patient_test_{unique_id}@test.com",
+                "phone": f"+23324456{unique_id[:4]}1",
+                "national_id": f"GHA{unique_id[:9]}1",
                 "password": "PatientPass123!",
                 "full_name": "John Doe",
                 "role": "patient"
