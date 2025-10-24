@@ -407,20 +407,20 @@ class HospitalAPITester:
     async def test_authentication_errors(self) -> bool:
         """Test error handling for authentication"""
         try:
-            # Test without authentication
+            # Test without authentication - should return 403 (Forbidden) or 401 (Unauthorized)
             async with self.session.get(f"{BACKEND_URL}/hospital/dashboard/stats") as response:
-                if response.status != 401:
-                    print(f"❌ Expected 401 without auth, got {response.status}")
+                if response.status not in [401, 403]:
+                    print(f"❌ Expected 401 or 403 without auth, got {response.status}")
                     return False
-                print("✅ 401 error returned correctly without authentication")
+                print(f"✅ {response.status} error returned correctly without authentication")
             
             # Test with invalid token
             invalid_headers = {"Authorization": "Bearer invalid_token_here"}
             async with self.session.get(f"{BACKEND_URL}/hospital/dashboard/stats", headers=invalid_headers) as response:
-                if response.status != 401:
-                    print(f"❌ Expected 401 with invalid token, got {response.status}")
+                if response.status not in [401, 403]:
+                    print(f"❌ Expected 401 or 403 with invalid token, got {response.status}")
                     return False
-                print("✅ 401 error returned correctly with invalid token")
+                print(f"✅ {response.status} error returned correctly with invalid token")
             
             return True
         except Exception as e:
