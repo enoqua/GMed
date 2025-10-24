@@ -34,10 +34,12 @@ class HospitalAPITester:
             
     async def register_hospital_user(self) -> Dict[str, Any]:
         """Register a hospital user for testing"""
+        import uuid
+        unique_id = str(uuid.uuid4())[:8]
         hospital_data = {
-            "email": "korle_bu_hospital@test.com",
-            "phone": "+233244567890",
-            "national_id": "GHA123456789",
+            "email": f"korle_bu_hospital_{unique_id}@test.com",
+            "phone": f"+23324456{unique_id[:4]}",
+            "national_id": f"GHA{unique_id[:9]}",
             "password": "SecurePass123!",
             "full_name": "Korle Bu Teaching Hospital",
             "role": "hospital",
