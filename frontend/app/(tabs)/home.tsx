@@ -17,6 +17,7 @@ import DoctorDashboard from '../../components/dashboards/DoctorDashboard';
 import PharmacyDashboard from '../../components/dashboards/PharmacyDashboard';
 import HospitalDashboard from '../../components/dashboards/HospitalDashboard';
 import api from '../../services/api';
+import { shadows } from '../../utils/shadows';
 
 const { width } = Dimensions.get('window');
 
