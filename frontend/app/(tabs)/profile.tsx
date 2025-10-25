@@ -17,17 +17,37 @@ export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/');
+    Alert.alert(
+      'Logout Confirmation',
+      'Are you sure you want to logout from your account?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-      },
-    ]);
+        {
+          text: 'Yes, Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Perform logout
+              const success = await logout();
+              
+              if (success) {
+                // Navigate to welcome screen
+                router.replace('/');
+              } else {
+                Alert.alert('Error', 'Failed to logout. Please try again.');
+              }
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'An error occurred while logging out.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const menuItems = [
