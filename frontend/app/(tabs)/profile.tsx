@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +16,7 @@ import { useAuthStore } from '../../store/authStore';
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -30,16 +32,24 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              setIsLoggingOut(true);
+              
               // Perform logout
               const success = await logout();
               
               if (success) {
-                // Navigate to welcome screen
-                router.replace('/');
+                // Small delay to ensure state is cleared
+                setTimeout(() => {
+                  setIsLoggingOut(false);
+                  // Navigate to welcome screen
+                  router.replace('/');
+                }, 500);
               } else {
+                setIsLoggingOut(false);
                 Alert.alert('Error', 'Failed to logout. Please try again.');
               }
             } catch (error) {
+              setIsLoggingOut(false);
               console.error('Logout error:', error);
               Alert.alert('Error', 'An error occurred while logging out.');
             }
