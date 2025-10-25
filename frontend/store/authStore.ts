@@ -38,9 +38,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   
   logout: async () => {
-    await AsyncStorage.removeItem('token');
-    await AsyncStorage.removeItem('user');
-    set({ user: null, token: null });
+    try {
+      // Clear AsyncStorage
+      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('user');
+      // Clear state immediately
+      set({ user: null, token: null, isLoading: false });
+      return true;
+    } catch (error) {
+      console.error('Logout error:', error);
+      return false;
+    }
   },
   
   loadUserFromStorage: async () => {
