@@ -143,9 +143,22 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#F44336" />
-          <Text style={styles.logoutButtonText}>Logout</Text>
+        <TouchableOpacity 
+          style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]} 
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+        >
+          {isLoggingOut ? (
+            <>
+              <ActivityIndicator size="small" color="#F44336" />
+              <Text style={styles.logoutButtonText}>Logging out...</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="log-out-outline" size={20} color="#F44336" />
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.version}>Version 1.0.0</Text>
