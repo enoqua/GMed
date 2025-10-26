@@ -148,6 +148,29 @@ export default function PharmacyDashboard({ userName }: { userName: string }) {
         ))}
       </View>
 
+      <View style={styles.quickActionsSection}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/pharmacy/manage-products')}
+          >
+            <Ionicons name="medical" size={32} color="#4CAF50" />
+            <Text style={styles.actionTitle}>Manage Products</Text>
+            <Text style={styles.actionSubtitle}>Add, edit or remove products</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/orders')}
+          >
+            <Ionicons name="cart" size={32} color="#2196F3" />
+            <Text style={styles.actionTitle}>View Orders</Text>
+            <Text style={styles.actionSubtitle}>Manage customer orders</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <Modal visible={showAddMedicine} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
