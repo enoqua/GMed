@@ -23,6 +23,7 @@ interface PharmacyStats {
 }
 
 export default function PharmacyDashboard({ userName }: { userName: string }) {
+  const router = useRouter();
   const [stats, setStats] = useState<PharmacyStats | null>(null);
   const [inventory, setInventory] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
