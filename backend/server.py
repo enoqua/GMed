@@ -4030,3 +4030,492 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+# ============================================
+# PROFESSIONAL VERIFICATION SYSTEM
+# ============================================
+
+class VerificationStatus:
+    PENDING = "pending"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+class DocumentType:
+    MEDICAL_LICENSE = "medical_license"
+    PHOTO_ID = "photo_id"
+    MEDICAL_DEGREE = "medical_degree"
+    BOARD_CERTIFICATION = "board_certification"
+    HOSPITAL_LICENSE = "hospital_license"
+    PHARMACY_LICENSE = "pharmacy_license"
+    PROOF_OF_ADDRESS = "proof_of_address"
+    CURRICULUM_VITAE = "curriculum_vitae"
+    MALPRACTICE_INSURANCE = "malpractice_insurance"
+    DEA_CERTIFICATE = "dea_certificate"
+    SPECIALTY_CERTIFICATION = "specialty_certification"
+
+class VerificationDocument(BaseModel):
+    document_type: str
+    document_number: Optional[str] = None
+    issuing_authority: str
+    issue_date: str
+    expiry_date: Optional[str] = None
+    document_base64: str
+    file_name: str
+    file_type: str
+    verified: bool = False
+    verified_at: Optional[str] = None
+    verified_by: Optional[str] = None
+    rejection_reason: Optional[str] = None
+
+class ProfessionalVerificationRequest(BaseModel):
+    # Personal Information
+    full_legal_name: str
+    date_of_birth: str
+    national_id: str
+    phone: str
+    email: EmailStr
+    current_address: str
+    city: str
+    state: str
+    postal_code: str
+    country: str = "Ghana"
+    
+    # Professional Information
+    role: str
+    
+    # Doctor Specific
+    medical_school: Optional[str] = None
+    graduation_year: Optional[int] = None
+    medical_license_number: Optional[str] = None
+    license_issuing_state: Optional[str] = None
+    primary_specialty: Optional[str] = None
+    subspecialties: Optional[List[str]] = None
+    board_certifications: Optional[List[str]] = None
+    years_of_practice: Optional[int] = None
+    current_hospital_affiliations: Optional[List[str]] = None
+    
+    # Hospital Specific
+    hospital_name: Optional[str] = None
+    hospital_registration_number: Optional[str] = None
+    facility_type: Optional[str] = None
+    number_of_beds: Optional[int] = None
+    accreditation_body: Optional[str] = None
+    accreditation_number: Optional[str] = None
+    
+    # Pharmacy Specific
+    pharmacy_name: Optional[str] = None
+    pharmacy_license_number: Optional[str] = None
+    pharmacist_in_charge: Optional[str] = None
+    pharmacy_council_registration: Optional[str] = None
+    
+    # Documents
+    documents: List[VerificationDocument]
+    
+    # Consent & Attestations
+    consent_background_check: bool
+    consent_license_verification: bool
+    attestation_accuracy: bool
+    attestation_no_sanctions: bool
+    digital_signature: str
+    submission_date: str
+
+class VerificationReviewRequest(BaseModel):
+    status: str
+    reviewer_notes: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    documents_verified: Optional[List[str]] = None
+    additional_documents_required: Optional[List[str]] = None
+
+# Submit verification request
+@api_router.post("/verification/submit")
+async def submit_verification(
+    request: ProfessionalVerificationRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Submit professional verification request with all required documents"""
+    try:
+        user_data = verify_token(credentials.credentials)
+        user_id = user_data["user_id"]
+        
+        # Check if verification already exists
+        existing = await db.verification_requests.find_one({"user_id": user_id})
+        if existing and existing.get("status") == VerificationStatus.APPROVED:
+            raise HTTPException(status_code=400, detail="User already verified")
+        
+        # Validate required documents by role
+        required_docs = get_required_documents_by_role(request.role)
+        submitted_doc_types = [doc.document_type for doc in request.documents]
+        
+        missing_docs = [doc for doc in required_docs if doc not in submitted_doc_types]
+        if missing_docs:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing required documents: {', '.join(missing_docs)}"
+            )
+        
+        # Validate attestations
+        if not all([
+            request.consent_background_check,
+            request.consent_license_verification,
+            request.attestation_accuracy,
+            request.attestation_no_sanctions
+        ]):
+            raise HTTPException(
+                status_code=400,
+                detail="All consent and attestation fields must be accepted"
+            )
+        
+        # Create verification request
+        verification_data = request.dict()
+        verification_data.update({
+            "user_id": user_id,
+            "status": VerificationStatus.PENDING,
+            "submitted_at": datetime.now().isoformat(),
+            "last_updated": datetime.now().isoformat(),
+            "verification_history": [{
+                "status": VerificationStatus.PENDING,
+                "timestamp": datetime.now().isoformat(),
+                "note": "Verification request submitted"
+            }]
+        })
+        
+        # Store documents separately for better security
+        doc_ids = []
+        for doc in request.documents:
+            doc_data = doc.dict()
+            doc_data["user_id"] = user_id
+            doc_data["uploaded_at"] = datetime.now().isoformat()
+            result = await db.verification_documents.insert_one(doc_data)
+            doc_ids.append(str(result.inserted_id))
+        
+        verification_data["document_ids"] = doc_ids
+        del verification_data["documents"]  # Remove base64 docs from main record
+        
+        if existing:
+            await db.verification_requests.update_one(
+                {"user_id": user_id},
+                {"$set": verification_data}
+            )
+        else:
+            await db.verification_requests.insert_one(verification_data)
+        
+        # Update user verification status
+        await db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {
+                "verification_status": VerificationStatus.PENDING,
+                "verification_submitted_at": datetime.now().isoformat()
+            }}
+        )
+        
+        return {
+            "message": "Verification request submitted successfully",
+            "status": VerificationStatus.PENDING,
+            "documents_submitted": len(request.documents)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error submitting verification: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to submit verification")
+
+# Get verification status
+@api_router.get("/verification/status")
+async def get_verification_status(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get current verification status for logged-in user"""
+    try:
+        user_data = verify_token(credentials.credentials)
+        user_id = user_data["user_id"]
+        
+        verification = await db.verification_requests.find_one({"user_id": user_id})
+        if not verification:
+            return {
+                "status": "not_submitted",
+                "message": "No verification request found"
+            }
+        
+        # Don't send document base64 data
+        verification["_id"] = str(verification["_id"])
+        if "document_ids" in verification:
+            verification["document_count"] = len(verification["document_ids"])
+            del verification["document_ids"]
+        
+        return verification
+        
+    except Exception as e:
+        logging.error(f"Error getting verification status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get verification status")
+
+# Admin: List all verification requests
+@api_router.get("/admin/verification/requests")
+async def list_verification_requests(
+    status: Optional[str] = None,
+    role: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Admin endpoint to list all verification requests"""
+    try:
+        user_data = verify_token(credentials.credentials)
+        if user_data.get("role") != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        query = {}
+        if status:
+            query["status"] = status
+        if role:
+            query["role"] = role
+        
+        requests_cursor = db.verification_requests.find(query).sort("submitted_at", -1)
+        requests = await requests_cursor.to_list(length=100)
+        
+        for req in requests:
+            req["_id"] = str(req["_id"])
+            if "document_ids" in req:
+                req["document_count"] = len(req["document_ids"])
+                del req["document_ids"]
+        
+        return requests
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error listing verification requests: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to list requests")
+
+# Admin: Review verification request
+@api_router.put("/admin/verification/{user_id}/review")
+async def review_verification(
+    user_id: str,
+    review: VerificationReviewRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Admin endpoint to review and approve/reject verification"""
+    try:
+        admin_data = verify_token(credentials.credentials)
+        if admin_data.get("role") != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        if review.status not in [VerificationStatus.APPROVED, VerificationStatus.REJECTED, VerificationStatus.IN_REVIEW]:
+            raise HTTPException(status_code=400, detail="Invalid status")
+        
+        verification = await db.verification_requests.find_one({"user_id": user_id})
+        if not verification:
+            raise HTTPException(status_code=404, detail="Verification request not found")
+        
+        # Update verification
+        update_data = {
+            "status": review.status,
+            "last_updated": datetime.now().isoformat(),
+            "reviewed_by": admin_data["user_id"],
+            "reviewed_at": datetime.now().isoformat(),
+            "reviewer_notes": review.reviewer_notes
+        }
+        
+        if review.status == VerificationStatus.REJECTED:
+            update_data["rejection_reason"] = review.rejection_reason
+        
+        if review.status == VerificationStatus.APPROVED:
+            update_data["approved_at"] = datetime.now().isoformat()
+            # Set expiry date (2 years for most credentials)
+            update_data["expires_at"] = (datetime.now() + timedelta(days=730)).isoformat()
+        
+        # Add to history
+        history_entry = {
+            "status": review.status,
+            "timestamp": datetime.now().isoformat(),
+            "reviewer": admin_data["user_id"],
+            "note": review.reviewer_notes or f"Status changed to {review.status}"
+        }
+        
+        await db.verification_requests.update_one(
+            {"user_id": user_id},
+            {
+                "$set": update_data,
+                "$push": {"verification_history": history_entry}
+            }
+        )
+        
+        # Update user record
+        await db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {
+                "verification_status": review.status,
+                "verified_at": datetime.now().isoformat() if review.status == VerificationStatus.APPROVED else None
+            }}
+        )
+        
+        # Update documents if specified
+        if review.documents_verified:
+            await db.verification_documents.update_many(
+                {
+                    "user_id": user_id,
+                    "document_type": {"$in": review.documents_verified}
+                },
+                {"$set": {
+                    "verified": True,
+                    "verified_at": datetime.now().isoformat(),
+                    "verified_by": admin_data["user_id"]
+                }}
+            )
+        
+        return {
+            "message": f"Verification {review.status}",
+            "user_id": user_id,
+            "status": review.status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error reviewing verification: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to review verification")
+
+# Admin: Get verification details with documents
+@api_router.get("/admin/verification/{user_id}/details")
+async def get_verification_details(
+    user_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Admin endpoint to get full verification details including documents"""
+    try:
+        admin_data = verify_token(credentials.credentials)
+        if admin_data.get("role") != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        verification = await db.verification_requests.find_one({"user_id": user_id})
+        if not verification:
+            raise HTTPException(status_code=404, detail="Verification request not found")
+        
+        verification["_id"] = str(verification["_id"])
+        
+        # Get documents
+        documents = []
+        if "document_ids" in verification:
+            for doc_id in verification["document_ids"]:
+                doc = await db.verification_documents.find_one({"_id": ObjectId(doc_id)})
+                if doc:
+                    doc["_id"] = str(doc["_id"])
+                    documents.append(doc)
+        
+        verification["documents"] = documents
+        del verification["document_ids"]
+        
+        return verification
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error getting verification details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get details")
+
+def get_required_documents_by_role(role: str) -> List[str]:
+    """Returns required documents for each role"""
+    common_docs = [
+        DocumentType.PHOTO_ID,
+        DocumentType.PROOF_OF_ADDRESS
+    ]
+    
+    role_specific = {
+        UserRole.DOCTOR: common_docs + [
+            DocumentType.MEDICAL_LICENSE,
+            DocumentType.MEDICAL_DEGREE,
+            DocumentType.BOARD_CERTIFICATION,
+            DocumentType.CURRICULUM_VITAE,
+            DocumentType.MALPRACTICE_INSURANCE
+        ],
+        UserRole.HOSPITAL: common_docs + [
+            DocumentType.HOSPITAL_LICENSE,
+            DocumentType.PROOF_OF_ADDRESS
+        ],
+        UserRole.PHARMACY: common_docs + [
+            DocumentType.PHARMACY_LICENSE,
+            DocumentType.DEA_CERTIFICATE
+        ],
+        UserRole.AMBULANCE: common_docs + [
+            DocumentType.PHOTO_ID,
+            DocumentType.PROOF_OF_ADDRESS
+        ],
+        UserRole.HERBALIST: common_docs + [
+            DocumentType.PHOTO_ID,
+            DocumentType.PROOF_OF_ADDRESS
+        ]
+    }
+    
+    return role_specific.get(role, common_docs)
+
+# Get required documents for role
+@api_router.get("/verification/required-documents/{role}")
+async def get_required_documents(role: str):
+    """Get list of required documents for a specific role"""
+    try:
+        required = get_required_documents_by_role(role)
+        
+        # Return with descriptions
+        doc_info = {
+            DocumentType.PHOTO_ID: {
+                "name": "Government-Issued Photo ID",
+                "description": "Valid passport, national ID, or driver's license",
+                "required": True
+            },
+            DocumentType.PROOF_OF_ADDRESS: {
+                "name": "Proof of Address",
+                "description": "Utility bill, bank statement, or lease agreement (within 3 months)",
+                "required": True
+            },
+            DocumentType.MEDICAL_LICENSE: {
+                "name": "Medical License",
+                "description": "Active medical license from Ghana Medical & Dental Council",
+                "required": True
+            },
+            DocumentType.MEDICAL_DEGREE: {
+                "name": "Medical Degree Certificate",
+                "description": "MBChB, MD, or equivalent from accredited medical school",
+                "required": True
+            },
+            DocumentType.BOARD_CERTIFICATION: {
+                "name": "Board Certification",
+                "description": "Specialty board certification from recognized authority",
+                "required": True
+            },
+            DocumentType.CURRICULUM_VITAE: {
+                "name": "Curriculum Vitae",
+                "description": "Current CV with professional history",
+                "required": True
+            },
+            DocumentType.MALPRACTICE_INSURANCE: {
+                "name": "Malpractice Insurance",
+                "description": "Valid professional liability insurance certificate",
+                "required": True
+            },
+            DocumentType.HOSPITAL_LICENSE: {
+                "name": "Hospital Operating License",
+                "description": "Valid hospital license from Ministry of Health",
+                "required": True
+            },
+            DocumentType.PHARMACY_LICENSE: {
+                "name": "Pharmacy License",
+                "description": "Valid pharmacy license from Pharmacy Council",
+                "required": True
+            },
+            DocumentType.DEA_CERTIFICATE: {
+                "name": "Controlled Substances Certificate",
+                "description": "Authorization to handle controlled substances",
+                "required": True
+            }
+        }
+        
+        return {
+            "role": role,
+            "required_documents": [doc_info.get(doc, {"name": doc, "description": "Required document", "required": True}) for doc in required]
+        }
+        
+    except Exception as e:
+        logging.error(f"Error getting required documents: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get required documents")
+
